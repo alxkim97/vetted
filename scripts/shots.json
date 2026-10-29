@@ -1,0 +1,9 @@
+{"url":"http://localhost:5182/","out":".shots","jobs":[
+ {"name":"home","w":1440,"h":900},
+ {"name":"home-dark","w":1440,"h":900,"theme":"dark"},
+ {"name":"register","w":1440,"h":900,"js":"document.querySelector('[data-view=register]').click()"},
+ {"name":"register-dark","w":1440,"h":900,"theme":"dark","js":"document.querySelector('[data-view=register]').click()"},
+ {"name":"detail","w":1440,"h":960,"js":"document.querySelector('[data-view=register]').click(); [...document.querySelectorAll('tr[data-act=open]')].find(r=>r.querySelector('.wait')).click(); 1"},
+ {"name":"waiting","w":1440,"h":900,"js":"document.querySelector('[data-view=waiting]').click()"},
+ {"name":"home-1100","w":1100,"h":900}
+]}
