@@ -217,7 +217,15 @@ root.addEventListener('click', async e => {
     case 'sub': state.filter.sub = state.filter.sub === value ? null : value; return render()
     case 'kind': state.filter.kind = value; return render()
     case 'material': state.filter.q = value; state.filter.group = 'all'; state.filter.sub = null; return setView('register')
-    case 'product': state.filter = { ...state.filter, product: value, q: '', group: 'all', sub: null }; return setView('register')
+    case 'product': {
+      const project = !state.filter.project || state.projectOf[value] === state.filter.project ? state.filter.project : ''
+      state.filter = { ...state.filter, product: value, project, q: '', group: 'all', sub: null }
+      return setView('register')
+    }
+    case 'project':
+      state.filter.project = value
+      if (value && state.filter.product && state.projectOf[state.filter.product] !== value) state.filter.product = ''
+      return render()
     case 'export': return exportCsv()
     case 'evaluation': return openEvaluation(id)
     case 'back': return setView(state.backView || 'register')

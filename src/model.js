@@ -33,6 +33,25 @@ export const fmtDate = d => d ? `${d.slice(8, 10)}-${d.slice(5, 7)}-${d.slice(2,
 // A graded entry only belongs to evaluations of that grade (PVP K30 vs K90).
 export const parseProduct = s => { const [name, code = null, grade = null] = String(s).split(' · '); return { name, code, grade } }
 export const productsFor = (m, grade) => (m.products || []).map(parseProduct).filter(p => !grade || !p.grade || p.grade === grade)
+
+// Product groups (rm_products.project), in the order the filter shows them.
+export const PROJECTS = { ltc: 'Lower the Cost', later: 'Added later', dev: 'In development', other: 'Not on list' }
+
+// BOM lines of the given products that no evaluation covers yet. A line with a
+// note is another code of an evaluated material ((N) customer code, other grade).
+export function notEvaluated(products, materials) {
+  const covered = new Set(materials.flatMap(m => (m.products || []).map(s => parseProduct(s).code)).filter(Boolean))
+  const out = new Map()
+  for (const p of products) for (const [code, name, note] of p.bom || []) {
+    if (covered.has(code)) continue
+    const it = out.get(code) || { code, name, note: null, products: [] }
+    it.note ||= note || null
+    if (!it.products.includes(p.name)) it.products.push(p.name)
+    out.set(code, it)
+  }
+  return [...out.values()].sort((a, b) =>
+    Number(!!a.note) - Number(!!b.note) || b.products.length - a.products.length || a.name.localeCompare(b.name))
+}
 export const productNames = list => [...new Set(list.map(p => p.name))]
 
 export function buildRows({ materials, evaluations, events }) {

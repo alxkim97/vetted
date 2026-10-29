@@ -67,6 +67,21 @@ h1, h2, h3 { font-family: var(--font-display); }
 .select-box.on select { color: var(--on-accent); }
 .select-box.on select option { color: var(--text); background: var(--surface); }
 .chips.prods { margin-top: 0; max-width: 420px; }
+/* Project group: a dot before the product name */
+.chip-tag[class*="g-"]::before { content: ''; display: inline-block; width: 7px; height: 7px; border-radius: 99px; margin-right: 5px; vertical-align: 0; background: var(--gc); }
+.chip-tag.g-ltc { --gc: var(--accent); }
+.chip-tag.g-later { --gc: var(--blue); }
+.chip-tag.g-dev { --gc: var(--amber); }
+.chip-tag.g-other { --gc: transparent; }
+.chip-tag.g-other::before { box-shadow: inset 0 0 0 1.5px var(--text3); }
+.legend { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.legend .chip-tag { background: var(--surface); }
+.left-panel { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+.left-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 12px; }
+.left-head h2 { margin: 0; font: 750 19px var(--font-display); letter-spacing: -0.015em; }
+.left-head .muted { color: var(--text2); font-size: 13.5px; }
+.grid tr.related td { color: var(--text2); }
+.grid tr.related .mat { font-weight: 550; }
 button.chip-tag.prod:hover { background: var(--accent); color: var(--on-accent); }
 .chip-tag .mono { font-weight: 550; color: var(--text3); margin-left: 2px; }
 .used-in { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }

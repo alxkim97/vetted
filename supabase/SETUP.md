@@ -124,6 +124,21 @@ drop policy if exists "members" on rm_eval_docs;
 drop policy if exists "members" on rm_glossary;
 create policy "members" on rm_eval_docs for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
 create policy "members" on rm_glossary  for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
+
+-- ── Product groups and BOMs (v0.4.0) ───────────────────────────────────
+-- One row per product named in rm_materials.products. project: ltc = Lower
+-- the Cost target, later = added afterwards, other = not on the list,
+-- dev = new product in development. bom = [[item code, name, note?], …].
+create table if not exists rm_products (
+  name    text primary key,
+  project text not null check (project in ('ltc', 'later', 'other', 'dev')),
+  code    text,
+  bom     jsonb not null default '[]',
+  note    text
+);
+alter table rm_products enable row level security;
+drop policy if exists "members" on rm_products;
+create policy "members" on rm_products for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
 ```
 
 ## `.env.local` (scheduled scan and `rm-log`)

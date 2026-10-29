@@ -1,4 +1,4 @@
-import { buildRows, STATUS, parseProduct } from './model.js'
+import { buildRows, STATUS, parseProduct, PROJECTS } from './model.js'
 
 const PREFS_KEY = 'vt_prefs'
 const CACHE_KEY = 'vt_cache'
@@ -14,7 +14,8 @@ export const state = {
   data: { materials: [], evaluations: [], events: [], lastRun: null },
   rows: [],
   prefs: load(PREFS_KEY, { theme: 'system', root: '', sort: 'activity', showOld: false, moreCols: false, issuesOnly: false }),
-  filter: { group: 'all', sub: null, kind: 'all', company: '', product: '', q: '' },
+  filter: { group: 'all', sub: null, kind: 'all', company: '', product: '', project: '', q: '' },
+  projectOf: {}, // product name → rm_products.project
   // Full evaluation page: which one, where Back goes, loaded files by
   // evaluation id, the Thai → English glossary, sections opened or closed by hand.
   evalId: null,
@@ -32,8 +33,11 @@ export function savePrefs(patch) {
 export function setData(data) {
   state.data = data
   state.rows = buildRows(data)
+  state.projectOf = Object.fromEntries((data.products || []).map(p => [p.name, p.project]))
   state.loaded = true
 }
+const inProject = (names, project) => !project || names.some(n => state.projectOf[n] === project)
+export const materialInProject = m => inProject((m.products || []).map(s => parseProduct(s).name), state.filter.project)
 export const rebuild = () => { state.rows = buildRows(state.data) }
 
 export function cacheData() { try { localStorage.setItem(CACHE_KEY, JSON.stringify(state.data)) } catch {} }
@@ -59,11 +63,12 @@ export function groupOf(r, group) {
   return group === 'all' || GROUPS[group].includes(r.status)
 }
 
-// Toolbar filters (API/excipient, company, product). The tiles count within these too.
+// Toolbar filters (API/excipient, company, project, product). The tiles count within these too.
 export function inToolbar(r) {
-  const { kind, company, product } = state.filter
+  const { kind, company, product, project } = state.filter
   return (kind === 'all' || r.kind === kind || (kind === 'unset' && !r.kind)) &&
     (!company || r.manufacturer === company || r.supplier === company) &&
+    inProject(r.products.map(p => p.name), project) &&
     (!product || r.products.some(p => p.name === product))
 }
 
@@ -91,3 +96,11 @@ export function sortRows(rows) {
 
 export const companies = () => [...new Set(state.rows.flatMap(r => [r.manufacturer, r.supplier]).filter(Boolean))].sort()
 export const products = () => [...new Set(state.data.materials.flatMap(m => (m.products || []).map(s => parseProduct(s).name)))].sort()
+// Products by project for the dropdown, limited to the picked project; ungrouped last.
+export function productGroups() {
+  const { project } = state.filter
+  const groups = [...Object.keys(PROJECTS), ''].map(k => [k, products().filter(n => (state.projectOf[n] || '') === k)])
+  return groups.filter(([k, names]) => names.length && (!project || k === project))
+}
+// The project segmented control only shows once rm_products has rows.
+export const hasProjects = () => (state.data.products || []).length > 0

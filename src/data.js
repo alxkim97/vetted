@@ -30,13 +30,15 @@ async function readAll(build) {
 
 // ── Load ──
 export async function fetchAll() {
-  const [materials, evaluations, events, runs] = await Promise.all([
+  const [materials, evaluations, events, runs, products] = await Promise.all([
     readAll(() => supa.from('rm_materials').select('*').is('removed_at', null).order('folder')),
     readAll(() => supa.from('rm_evaluations').select('*').is('removed_at', null).order('folder')),
     readAll(() => supa.from('rm_events').select('*').order('event_date').order('created_at')),
     supa.from('rm_scan_runs').select('*').order('started_at', { ascending: false }).limit(1).then(must),
+    // project groups and BOMs; empty until the v0.4.0 SQL has been run
+    readAll(() => supa.from('rm_products').select('*').order('name')).catch(() => []),
   ])
-  return { materials, evaluations, events, lastRun: runs[0] ?? null }
+  return { materials, evaluations, events, products, lastRun: runs[0] ?? null }
 }
 
 // ── Writes (app-owned columns only) ──

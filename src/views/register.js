@@ -1,10 +1,16 @@
 // The main grid: one row per candidate evaluation, spreadsheet-style.
 // Six columns by default; "More columns" brings back the rest.
-import { state, filteredRows, companies, products, groupOf, inToolbar, GROUPS } from '../store.js'
-import { STATUS, fmtDate, waitTone, productNames } from '../model.js'
+import { state, filteredRows, companies, productGroups, hasProjects, groupOf, inToolbar, GROUPS } from '../store.js'
+import { STATUS, PROJECTS, fmtDate, waitTone, productNames } from '../model.js'
 import { esc, icon } from '../ui.js'
 
 export const pill = s => `<span class="stamp t-${STATUS[s].tone}">${esc(STATUS[s].label)}</span>`
+
+// Lower the Cost / Added later / … — shared by Register and Materials.
+export const projectSeg = () => hasProjects() ? `
+  <div class="seg small" role="group" aria-label="Project">
+    ${[['', 'All products'], ...Object.entries(PROJECTS)].map(([v, l]) => `<button type="button" class="${state.filter.project === v ? 'on' : ''}" data-act="project" data-value="${v}">${l}</button>`).join('')}
+  </div>` : ''
 const dash = '<span class="nil">—</span>'
 const days = d => d == null ? dash : `<span class="num">${d}</span><span class="unit">d</span>`
 
@@ -28,6 +34,7 @@ function toolbar() {
     </section>
     ${subs.length ? `<div class="subs">${subs.map(([s, n]) => `<button class="sub-chip${f.sub === s ? ' on' : ''}" data-act="sub" data-value="${s}">${esc(STATUS[s].label)} <b>${n}</b></button>`).join('')}</div>` : ''}
     <div class="filters">
+      ${projectSeg()}
       <div class="seg small" role="group" aria-label="API or excipient">
         ${[['all', 'All'], ['api', 'API'], ['excipient', 'Excipient']].map(([v, l]) => `<button type="button" class="${f.kind === v ? 'on' : ''}" data-act="kind" data-value="${v}">${l}</button>`).join('')}
       </div>
@@ -39,7 +46,10 @@ function toolbar() {
       <label class="select-box${f.product ? ' on' : ''}">${icon('box', 15)}
         <select id="product" aria-label="Product">
           <option value="">Any product</option>
-          ${products().map(x => `<option${f.product === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}
+          ${productGroups().map(([k, names]) => {
+            const opts = names.map(x => `<option${f.product === x ? ' selected' : ''}>${esc(x)}</option>`).join('')
+            return hasProjects() ? `<optgroup label="${esc(PROJECTS[k] || 'Other')}">${opts}</optgroup>` : opts
+          }).join('')}
         </select></label>
       <label class="toggle"><input type="checkbox" id="show-old" ${state.prefs.showOld ? 'checked' : ''}> Show closed &amp; old</label>
       <label class="toggle"><input type="checkbox" id="more-cols" ${state.prefs.moreCols ? 'checked' : ''}> More columns</label>
