@@ -35,6 +35,12 @@ Raw Material Evaluation Document\ ──(lib/scanner.js: desktop Re-scan, daily 
 - Precedence for a field: the file's Tracker block, then the value set in the app or by `rm-log`, then the scanner's guess.
 - `src/`: the app. `model.js` derives status and durations, `views/` holds Register, Waiting,
   Materials and Settings, and `detail.js` is the evaluation sheet with its timeline.
+- Full evaluation page (`views/evaluation.js`): the scan stores each comparison file in
+  `rm_eval_docs`; `lib/doc.js` turns it into spreadsheet tables, marks Fail / Missing / Confirm
+  rows from the Verdict or Status column, and translates Thai to English (form words built in,
+  company names from the `rm_glossary` table so they stay out of this public repo).
+- Products: `rm_materials.products` holds "Product · item code[ · grade]" entries, written
+  outside the repo. A graded entry only matches evaluations of that grade.
 
 ## Setup
 

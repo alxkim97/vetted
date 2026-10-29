@@ -6,6 +6,8 @@ import { esc, icon, openModal, toast, confirmBox } from './ui.js'
 import { pill } from './views/register.js'
 
 const isDesktop = () => !!window.electronAPI?.isElectron
+// Set by main.js: opens the full evaluation page.
+export const hooks = { openFull: null }
 const replace = (list, row) => { const i = list.findIndex(x => x.id === row.id); if (i >= 0) list[i] = row; else list.push(row) }
 
 export function openDetail(id, onChange) {
@@ -33,9 +35,14 @@ export function openDetail(id, onChange) {
           <h2>${r.candidate ? esc(r.candidate) : '<span class="muted">Candidate not set</span>'}</h2>
         </div>
         ${pill(r.status)}
+        ${r.fileName && state.view !== 'evaluation' ? `<button class="btn primary small" data-d="full">${icon('grid', 15)} Full evaluation</button>` : ''}
         <button class="icon-btn" data-close aria-label="Close">${icon('x')}</button>
       </div>
       <div class="modal-body">
+        <div class="used-in"><span class="field-label">Used in</span>
+          ${r.products.length ? `<div class="chips">${r.products.map(p => `<span class="chip-tag prod">${esc(p.name)} <span class="mono">${esc(p.code || '')}</span></span>`).join('')}</div>`
+            : `<span class="muted small">${r.material.products?.length ? 'No product uses this grade' : 'No product linked yet'}</span>`}
+        </div>
         ${r.verdictLine ? `<blockquote class="verdict">${esc(r.verdictLine)}</blockquote>` : r.fileName ? `<p class="muted small">No verdict line in this file (older format, verdict only in the count table).</p>` : ''}
         ${r.suggested ? `<div class="suggest">${icon('sparkle', 16)} The verdict line says <b>${esc(STATUS[r.suggested].label)}</b>. <button class="btn soft small" data-d="accept" data-value="${r.suggested}">Use it</button></div>` : ''}
 
@@ -64,7 +71,7 @@ export function openDetail(id, onChange) {
             <div class="field-row">
               <label class="field" style="flex:0 0 150px">Date<input name="event_date" type="date" value="${todayIso()}" required></label>
               <label class="field">${addKind === 'message_sent' ? 'To' : addKind === 'docs_received' ? 'From' : 'Who'}<input name="party" placeholder="${addKind === 'docs_received' ? 'PU, supplier…' : 'PU, K. Am, QA manager…'}"></label>
-              <label class="field">${addKind === 'verdict' ? 'Verdict' : 'Documents'}<input name="what" placeholder="${addKind === 'verdict' ? 'ขาด: GMP missing' : 'GMP, MSDS, 50 g sample'}"></label>
+              <label class="field">${addKind === 'verdict' ? 'Verdict' : 'Documents'}<input name="what" placeholder="${addKind === 'verdict' ? 'Missing: GMP certificate' : 'GMP, MSDS, 50 g sample'}"></label>
             </div>
             <label class="field">${addKind === 'message_sent' ? 'What was said' : 'Note'}<textarea name="note" rows="2" placeholder="${addKind === 'message_sent' ? 'CoA verdict and the next documents asked for' : ''}"></textarea></label>
             ${addKind === 'docs_received' && r.openRequests.length ? `<label class="check-line"><input type="checkbox" name="close" checked> Close the ${r.openRequests.length} open request${r.openRequests.length > 1 ? 's' : ''}</label>` : ''}
@@ -136,6 +143,7 @@ export function openDetail(id, onChange) {
     try {
       switch (b.dataset.d) {
         case 'adding': adding = !adding; return draw()
+        case 'full': m.close(); return hooks.openFull?.(id)
         case 'accept': replace(state.data.evaluations, await updateEvaluation(id, { stamp: b.dataset.value })); toast(`Stamped ${STATUS[b.dataset.value].label}`); return changed()
         case 'clear-stamp': replace(state.data.evaluations, await updateEvaluation(id, { stamp: null })); return changed()
         case 'close-req': replace(state.data.events, await updateEvent(b.dataset.id, { closed_on: todayIso() })); toast('Marked received'); return changed()

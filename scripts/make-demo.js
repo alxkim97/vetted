@@ -36,6 +36,8 @@ open.forEach((e, i) => {
   add(e, 'docs_requested', 3 + i * 9, { party: 'PU', what: '(example) GMP certificate, MSDS' })
 })
 
-const out = { materials, evaluations, events, lastRun: { trigger: 'demo', started_at: now, finished_at: now, ok: true, materials: materials.length, evaluations: evaluations.length, events_added: scan.events.length } }
+// The comparison files themselves, for the full evaluation page.
+const docs = Object.fromEntries(scan.evaluations.filter(e => e.body).map(e => [ev[e.folder].id, e.body]))
+const out = { materials, evaluations, events, docs, lastRun: { trigger: 'demo', started_at: now, finished_at: now, ok: true, materials: materials.length, evaluations: evaluations.length, events_added: scan.events.length } }
 writeFileSync(join(ROOT, 'src', 'demo-scan.json'), JSON.stringify(out, null, 1))
 console.log(`src/demo-scan.json: ${materials.length} materials, ${evaluations.length} evaluations, ${events.length} events`)

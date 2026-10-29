@@ -1,11 +1,13 @@
 // Turns raw rows into what the views show: effective fields (file tracker
 // block over app value over scan guess), status, timeline and durations.
 import { STAMPS, suggestStamp } from '../lib/parse.js'
+import { toEnglish } from '../lib/doc.js'
 
+// Shown in English; the files and PU still use ผ่าน / ขาด / ไม่ผ่าน.
 export const STATUS = {
-  pass:       { label: 'ผ่าน', tone: 'green', order: 3 },
-  gap:        { label: 'ขาด', tone: 'amber', order: 2 },
-  fail:       { label: 'ไม่ผ่าน', tone: 'red', order: 0 },
+  pass:       { label: 'Pass', tone: 'green', order: 3 },
+  gap:        { label: 'Missing', tone: 'amber', order: 2 },
+  fail:       { label: 'Fail', tone: 'red', order: 0 },
   closed_ok:  { label: 'Approved', tone: 'blue', order: 5, hint: 'Closed: Selection Form approved' },
   closed_no:  { label: 'Not approved', tone: 'slate', order: 1, hint: 'Closed: Selection Form not approved' },
   untagged:   { label: 'Not tagged', tone: 'violet', order: 4, hint: 'Has a verdict line; pick the stamp' },
@@ -26,6 +28,12 @@ export const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) 
 
 // "2026-10-08" → "08-10-26" (APm's dd-mm-yy, as on the Selection Form)
 export const fmtDate = d => d ? `${d.slice(8, 10)}-${d.slice(5, 7)}-${d.slice(2, 4)}` : ''
+
+// rm_materials.products entries read "Product · item code" or "Product · item code · grade".
+// A graded entry only belongs to evaluations of that grade (PVP K30 vs K90).
+export const parseProduct = s => { const [name, code = null, grade = null] = String(s).split(' · '); return { name, code, grade } }
+export const productsFor = (m, grade) => (m.products || []).map(parseProduct).filter(p => !grade || !p.grade || p.grade === grade)
+export const productNames = list => [...new Set(list.map(p => p.name))]
 
 export function buildRows({ materials, evaluations, events }) {
   const today = todayIso()
@@ -55,10 +63,11 @@ export function buildRows({ materials, evaluations, events }) {
       avl: t.avl_listed ?? e.avl_listed ?? null,
       itemCode: t.item_code || e.item_code || null,
       kind: t.kind || m.kind || null,
+      products: productsFor(m, e.grade),
       nextAction: t.next_action || e.next_action || null,
       fromFile: new Set(Object.keys(t)),
       stamp, status, suggested: stamp ? null : suggestStamp(e.verdict_line),
-      verdictLine: e.verdict_line,
+      verdictLine: e.verdict_line ? toEnglish(e.verdict_line) : null,
       fileName: e.file_name, folder: e.folder, rev: e.rev, revDate: e.rev_date,
       events: evs, firstDocs, verdictDate,
       daysToVerdict: firstDocs && verdictDate && verdictDate >= firstDocs ? daysBetween(firstDocs, verdictDate) : null,

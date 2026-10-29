@@ -104,6 +104,26 @@ create policy "members" on rm_materials   for all to authenticated using (is_wor
 create policy "members" on rm_evaluations for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
 create policy "members" on rm_events      for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
 create policy "members" on rm_scan_runs   for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
+
+-- ── Full evaluation page (v0.3.0) ──────────────────────────────────────
+-- The comparison .md as last scanned, read only when its page is opened.
+create table if not exists rm_eval_docs (
+  evaluation_id uuid primary key references rm_evaluations(id) on delete cascade,
+  body          text not null,
+  updated_at    timestamptz not null default now()
+);
+-- Thai → English for names the page shows (distributors, people). Kept here,
+-- not in the public repo.
+create table if not exists rm_glossary (
+  thai    text primary key,
+  english text not null
+);
+alter table rm_eval_docs enable row level security;
+alter table rm_glossary  enable row level security;
+drop policy if exists "members" on rm_eval_docs;
+drop policy if exists "members" on rm_glossary;
+create policy "members" on rm_eval_docs for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
+create policy "members" on rm_glossary  for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
 ```
 
 ## `.env.local` (scheduled scan and `rm-log`)

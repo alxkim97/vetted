@@ -1,7 +1,7 @@
 // The main grid: one row per candidate evaluation, spreadsheet-style.
 // Six columns by default; "More columns" brings back the rest.
-import { state, filteredRows, companies, groupOf, GROUPS } from '../store.js'
-import { STATUS, fmtDate, waitTone } from '../model.js'
+import { state, filteredRows, companies, products, groupOf, inToolbar, GROUPS } from '../store.js'
+import { STATUS, fmtDate, waitTone, productNames } from '../model.js'
 import { esc, icon } from '../ui.js'
 
 export const pill = s => `<span class="stamp t-${STATUS[s].tone}">${esc(STATUS[s].label)}</span>`
@@ -10,15 +10,16 @@ const days = d => d == null ? dash : `<span class="num">${d}</span><span class="
 
 const TILES = [
   ['action', 'Needs action', 'amber'],
-  ['pass', 'ผ่าน', 'green'],
+  ['pass', 'Pass', 'green'],
   ['closed', 'Closed', 'slate'],
   ['all', 'All open', ''],
 ]
 
 function toolbar() {
   const f = state.filter
-  const count = g => state.rows.filter(r => groupOf(r, g)).length
-  const subs = f.group === 'action' ? GROUPS.action.map(s => [s, state.rows.filter(r => groupOf(r, 'action') && r.status === s).length]).filter(([, n]) => n) : []
+  const base = state.rows.filter(inToolbar)
+  const count = g => base.filter(r => groupOf(r, g)).length
+  const subs = f.group === 'action' ? GROUPS.action.map(s => [s, base.filter(r => groupOf(r, 'action') && r.status === s).length]).filter(([, n]) => n) : []
   return `
     <section class="tally" aria-label="Filter by status">
       ${TILES.map(([g, label, tone]) => `
@@ -34,6 +35,11 @@ function toolbar() {
         <select id="company" aria-label="Manufacturer or supplier">
           <option value="">Any manufacturer / supplier</option>
           ${companies().map(x => `<option${f.company === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}
+        </select></label>
+      <label class="select-box${f.product ? ' on' : ''}">${icon('box', 15)}
+        <select id="product" aria-label="Product">
+          <option value="">Any product</option>
+          ${products().map(x => `<option${f.product === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}
         </select></label>
       <label class="toggle"><input type="checkbox" id="show-old" ${state.prefs.showOld ? 'checked' : ''}> Show closed &amp; old</label>
       <label class="toggle"><input type="checkbox" id="more-cols" ${state.prefs.moreCols ? 'checked' : ''}> More columns</label>
@@ -84,9 +90,9 @@ export function renderRegister() {
 // CSV of exactly what's on screen, every column. UTF-8 BOM so Excel shows Thai correctly.
 export function exportCsv() {
   const rows = filteredRows()
-  const head = ['Material', 'Grade', 'Candidate', 'Manufacturer', 'Supplier', 'AVL', 'Kind', 'Item code', 'Stamp', 'Verdict line', 'Docs in', 'Days to verdict', 'Open for (d)', 'Waiting (d)', 'Open requests', 'Last message', 'Rev', 'Rev date', 'Next action', 'Folder']
+  const head = ['Material', 'Grade', 'Candidate', 'Manufacturer', 'Supplier', 'AVL', 'Kind', 'Item code', 'Products', 'Stamp', 'Verdict line', 'Docs in', 'Days to verdict', 'Open for (d)', 'Waiting (d)', 'Open requests', 'Last message', 'Rev', 'Rev date', 'Next action', 'Folder']
   const q = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
-  const lines = rows.map(r => [r.materialName, r.grade, r.candidate, r.manufacturer, r.supplier, r.avl == null ? '' : r.avl ? 'Yes' : 'No', r.kind, r.itemCode, STATUS[r.status].label, r.verdictLine,
+  const lines = rows.map(r => [r.materialName, r.grade, r.candidate, r.manufacturer, r.supplier, r.avl == null ? '' : r.avl ? 'Yes' : 'No', r.kind, r.itemCode, productNames(r.products).join('; '), STATUS[r.status].label, r.verdictLine,
     fmtDate(r.firstDocs), r.daysToVerdict, r.ageDays, r.waitingDays, r.openRequests.map(x => x.what).join('; '),
     r.lastMessage ? `${fmtDate(r.lastMessage.event_date)} ${r.lastMessage.party || ''}: ${r.lastMessage.note || r.lastMessage.what || ''}` : '', r.rev != null ? `R.${r.rev}` : '', fmtDate(r.revDate), r.nextAction, r.folder].map(q).join(','))
   const blob = new Blob(['﻿' + [head.join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' })

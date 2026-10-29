@@ -25,6 +25,8 @@ app.whenReady().then(async () => {
       const h = await win.webContents.executeJavaScript(`Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)`)
       win.setContentSize(j.w, Math.min(h, 3200)); await sleep(500)
     }
+    // hidden windows can skip repainting the main layer after a scroll
+    win.webContents.invalidate(); await sleep(300)
     fs.writeFileSync(path.join(cfg.out, j.name + '.png'), (await win.webContents.capturePage()).toPNG())
     console.log('saved', j.name)
     win.destroy()

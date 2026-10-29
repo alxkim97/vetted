@@ -1,4 +1,4 @@
-import { buildRows, STATUS } from './model.js'
+import { buildRows, STATUS, parseProduct } from './model.js'
 
 const PREFS_KEY = 'vt_prefs'
 const CACHE_KEY = 'vt_cache'
@@ -13,8 +13,15 @@ export const state = {
   homeDay: null,
   data: { materials: [], evaluations: [], events: [], lastRun: null },
   rows: [],
-  prefs: load(PREFS_KEY, { theme: 'system', root: '', sort: 'activity', showOld: false, moreCols: false }),
-  filter: { group: 'all', sub: null, kind: 'all', company: '', q: '' },
+  prefs: load(PREFS_KEY, { theme: 'system', root: '', sort: 'activity', showOld: false, moreCols: false, issuesOnly: false }),
+  filter: { group: 'all', sub: null, kind: 'all', company: '', product: '', q: '' },
+  // Full evaluation page: which one, where Back goes, loaded files by
+  // evaluation id, the Thai → English glossary, sections opened or closed by hand.
+  evalId: null,
+  backView: 'register',
+  docs: {},
+  glossary: null,
+  secOpen: new Map(),
 }
 
 export function savePrefs(patch) {
@@ -52,16 +59,23 @@ export function groupOf(r, group) {
   return group === 'all' || GROUPS[group].includes(r.status)
 }
 
-// Rows after the tiles and toolbar filters (API/excipient, company, search).
+// Toolbar filters (API/excipient, company, product). The tiles count within these too.
+export function inToolbar(r) {
+  const { kind, company, product } = state.filter
+  return (kind === 'all' || r.kind === kind || (kind === 'unset' && !r.kind)) &&
+    (!company || r.manufacturer === company || r.supplier === company) &&
+    (!product || r.products.some(p => p.name === product))
+}
+
+// Rows after the tiles, toolbar filters and search.
 export function filteredRows() {
-  const { group, sub, kind, company, q } = state.filter
+  const { group, sub, q } = state.filter
   const needle = q.trim().toLowerCase()
   const rows = state.rows.filter(r =>
     (needle ? true : groupOf(r, group)) &&
     (!sub || r.status === sub) &&
-    (kind === 'all' || r.kind === kind || (kind === 'unset' && !r.kind)) &&
-    (!company || r.manufacturer === company || r.supplier === company) &&
-    (!needle || [r.materialName, r.grade, r.candidate, r.manufacturer, r.supplier, r.itemCode, r.fileName].some(v => String(v ?? '').toLowerCase().includes(needle))))
+    inToolbar(r) &&
+    (!needle || [r.materialName, r.grade, r.candidate, r.manufacturer, r.supplier, r.itemCode, r.fileName, ...r.products.map(p => p.name)].some(v => String(v ?? '').toLowerCase().includes(needle))))
   return sortRows(rows)
 }
 
@@ -76,3 +90,4 @@ export function sortRows(rows) {
 }
 
 export const companies = () => [...new Set(state.rows.flatMap(r => [r.manufacturer, r.supplier]).filter(Boolean))].sort()
+export const products = () => [...new Set(state.data.materials.flatMap(m => (m.products || []).map(s => parseProduct(s).name)))].sort()

@@ -43,6 +43,14 @@ export async function fetchAll() {
 const EVAL_FIELDS = ['candidate_name', 'stamp', 'supplier', 'manufacturer', 'avl_listed', 'item_code', 'next_action', 'notes']
 const pick = (obj, keys) => Object.fromEntries(Object.entries(obj).filter(([k]) => keys.includes(k)))
 
+// The comparison file for one evaluation (null if none scanned yet).
+export async function fetchDoc(evaluationId) {
+  return must(await supa.from('rm_eval_docs').select('body,updated_at').eq('evaluation_id', evaluationId).maybeSingle())
+}
+export async function fetchGlossary() {
+  return Object.fromEntries((await readAll(() => supa.from('rm_glossary').select('thai,english'))).map(r => [r.thai, r.english]))
+}
+
 export const updateEvaluation = async (id, patch) =>
   must(await supa.from('rm_evaluations').update(pick(patch, EVAL_FIELDS)).eq('id', id).select('*').single())
 

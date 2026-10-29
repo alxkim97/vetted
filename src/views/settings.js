@@ -35,10 +35,10 @@ export function renderSettings() {
       <section class="card">
         <div class="card-head"><h2>${icon('message', 18)} Logging from a chat</h2></div>
         <p class="muted">A material chat records what it sent or asked for with one command, so the timeline fills in without typing here:</p>
-        <pre class="sql">node scripts/rm-log.js message   --material "<material>" --candidate "<candidate>" --party "PU" --note "CoA ขาด; asked for GMP + MSDS"
+        <pre class="sql">node scripts/rm-log.js message   --material "<material>" --candidate "<candidate>" --party "PU" --note "CoA Missing; asked for GMP + MSDS"
 node scripts/rm-log.js requested --material "<material>" --candidate "<candidate>" --what "GMP, MSDS" --party "PU"
 node scripts/rm-log.js received  --material "<material>" --candidate "<candidate>" --what "GMP" --close all
-node scripts/rm-log.js verdict   --material "<material>" --candidate "<candidate>" --stamp ขาด --what "<one-line reason>"
+node scripts/rm-log.js verdict   --material "<material>" --candidate "<candidate>" --stamp missing --what "<one-line reason>"
 node scripts/rm-log.js open</pre>
       </section>
 

@@ -1,8 +1,9 @@
 import './style.css'
 import './register.css'
 import './apple.css'
+import './evaluation.css'
 import { isConfigured } from './config.js'
-import { getSession, onAuthChange, isMember, fetchAll, runScan, signOut, updateEvent } from './data.js'
+import { getSession, onAuthChange, isMember, fetchAll, runScan, signOut, updateEvent, fetchDoc, fetchGlossary } from './data.js'
 import { state, savePrefs, setData, cacheData, restoreCache, clearCache } from './store.js'
 import { esc, icon, toast, closeTopModal, modalOpen } from './ui.js'
 import { renderAuth, renderNotMember, renderNoTables } from './views/auth.js'
@@ -11,7 +12,8 @@ import { renderMaterials } from './views/materials.js'
 import { renderWaiting, waitingCount } from './views/waiting.js'
 import { renderSettings, scanSummary } from './views/settings.js'
 import { renderHome, homeSummary } from './views/home.js'
-import { openDetail } from './detail.js'
+import { openDetail, hooks } from './detail.js'
+import { renderEvaluation } from './views/evaluation.js'
 import { applyTheme, stampMark } from './theme.js'
 import { initUpdateReload } from './swUpdate.js'
 import { todayIso } from './model.js'
@@ -67,6 +69,8 @@ async function scan() {
     const r = await runScan(state.prefs.root || undefined)
     toast(`Scanned ${r.evaluations} evaluations · ${r.events_added} new document folder${r.events_added === 1 ? '' : 's'}`)
     state.scanning = false
+    state.docs = {}
+    if (state.view === 'evaluation') loadDoc(state.evalId)
     await load()
   } catch (e) {
     state.scanning = false
@@ -90,6 +94,7 @@ function content() {
     case 'materials': return renderMaterials()
     case 'settings': return renderSettings()
     case 'register': return renderRegister()
+    case 'evaluation': return renderEvaluation()
     default: return renderHome()
   }
 }
@@ -115,6 +120,7 @@ function timeAgo(iso) {
 }
 
 function pageHead() {
+  if (state.view === 'evaluation') return ''
   if (state.view === 'home') {
     const d = new Date(todayIso() + 'T00:00:00')
     return `<div class="page-head"><div><h1>${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</h1><p>${esc(homeSummary())}</p></div></div>`
@@ -130,7 +136,7 @@ function shell() {
       <header class="topnav">
         <div class="brand"><span class="logo">${stampMark(20)}</span><span>Vetted</span></div>
         <nav class="pills" aria-label="Pages">
-          ${NAV.map(n => `<button class="pill${state.view === n.view ? ' on' : ''}" data-act="nav" data-view="${n.view}">${icon(n.icon, 17)}<span>${n.label}</span>${n.view === 'waiting' && waiting ? `<b class="pill-badge">${waiting}</b>` : ''}</button>`).join('')}
+          ${NAV.map(n => `<button class="pill${state.view === n.view || (state.view === 'evaluation' && state.backView === n.view) ? ' on' : ''}" data-act="nav" data-view="${n.view}">${icon(n.icon, 17)}<span>${n.label}</span>${n.view === 'waiting' && waiting ? `<b class="pill-badge">${waiting}</b>` : ''}</button>`).join('')}
         </nav>
         <div class="topnav-right">
           ${scanButton()}
@@ -164,6 +170,41 @@ function setView(view) {
   root.querySelector('.content')?.scrollTo(0, 0)
 }
 
+// ── Full evaluation page ─────────────────────────────────────────────────
+function openEvaluation(id) {
+  if (state.view !== 'evaluation') state.backView = state.view
+  state.evalId = id
+  setView('evaluation')
+  if (!state.docs[id]) loadDoc(id)
+}
+
+async function loadDoc(id) {
+  try {
+    const [doc, glossary] = await Promise.all([fetchDoc(id), state.glossary ?? fetchGlossary().catch(() => ({}))])
+    state.glossary = glossary
+    state.docs[id] = { body: doc?.body ?? null, at: doc?.updated_at ?? null }
+  } catch (e) {
+    const missing = /rm_eval_docs|42P01|PGRST205/.test(`${e.code} ${e.message}`)
+    state.docs[id] = { error: missing ? 'The rm_eval_docs table is not set up yet. Run the v0.3.0 SQL block in supabase/SETUP.md, then scan once.' : e.message }
+  }
+  if (state.view === 'evaluation' && state.evalId === id) render()
+}
+
+// Scroll to a row or note; open its folded section first.
+function jumpTo(elId) {
+  const el = root.querySelector(`#${CSS.escape(elId)}`)
+  if (!el) return
+  const sec = el.closest('details')
+  if (sec && !sec.open) sec.open = true
+  el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash')
+}
+
+hooks.openFull = openEvaluation
+root.addEventListener('toggle', e => {
+  if (e.target.matches?.('.fe-sec')) state.secOpen.set(`${state.evalId}:${e.target.dataset.sec}`, e.target.open)
+}, true)
+
 // ── Interaction ──────────────────────────────────────────────────────────
 root.addEventListener('click', async e => {
   const el = e.target.closest('[data-act]')
@@ -176,7 +217,18 @@ root.addEventListener('click', async e => {
     case 'sub': state.filter.sub = state.filter.sub === value ? null : value; return render()
     case 'kind': state.filter.kind = value; return render()
     case 'material': state.filter.q = value; state.filter.group = 'all'; state.filter.sub = null; return setView('register')
+    case 'product': state.filter = { ...state.filter, product: value, q: '', group: 'all', sub: null }; return setView('register')
     case 'export': return exportCsv()
+    case 'evaluation': return openEvaluation(id)
+    case 'back': return setView(state.backView || 'register')
+    case 'jump': return jumpTo(value)
+    case 'note': return jumpTo(`note-${value}`)
+    case 'issues-only': savePrefs({ issuesOnly: value === '1' }); return render()
+    case 'eval-detail': return openDetail(state.evalId, render)
+    case 'eval-file': {
+      const r = state.rows.find(x => x.id === state.evalId)
+      return window.electronAPI?.openPath({ root: state.prefs.root, rel: `${r.folder}/${r.fileName}` })
+    }
     case 'scan': return scan()
     case 'received':
       e.stopPropagation()
@@ -201,6 +253,7 @@ root.addEventListener('keydown', e => {
 
 root.addEventListener('change', e => {
   if (e.target.id === 'company') { state.filter.company = e.target.value; render() }
+  if (e.target.id === 'product') { state.filter.product = e.target.value; render() }
   if (e.target.id === 'sort') { savePrefs({ sort: e.target.value }); render() }
   if (e.target.id === 'root') savePrefs({ root: e.target.value.trim() })
   if (e.target.id === 'show-old') { savePrefs({ showOld: e.target.checked }); render() }
@@ -216,7 +269,12 @@ root.addEventListener('input', e => {
 })
 
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') { if (closeTopModal()) return; if (state.filter.q) { state.filter.q = ''; render() } return }
+  if (e.key === 'Escape') {
+    if (closeTopModal()) return
+    if (state.view === 'evaluation') return setView(state.backView || 'register')
+    if (state.filter.q) { state.filter.q = ''; render() }
+    return
+  }
   const typing = e.target.closest('input, textarea, select, [contenteditable]')
   if (typing || modalOpen() || e.ctrlKey || e.metaKey || e.altKey || !state.member) return
   const keys = {

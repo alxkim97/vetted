@@ -63,6 +63,14 @@ h1, h2, h3 { font-family: var(--font-display); }
 .seg button.on { background: var(--accent); color: var(--on-accent); box-shadow: none; }
 .select-box { border: 0; border-radius: 99px; background: var(--surface); height: 36px; padding: 0 6px 0 12px; }
 .select-box select { font-weight: 600; }
+.select-box.on { background: var(--accent); color: var(--on-accent); }
+.select-box.on select { color: var(--on-accent); }
+.select-box.on select option { color: var(--text); background: var(--surface); }
+.chips.prods { margin-top: 0; max-width: 420px; }
+button.chip-tag.prod:hover { background: var(--accent); color: var(--on-accent); }
+.chip-tag .mono { font-weight: 550; color: var(--text3); margin-left: 2px; }
+.used-in { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.used-in .field-label { margin: 0; }
 .search-box { border: 0; border-radius: 99px; background: var(--surface); height: 40px; width: 320px; padding: 0 14px; }
 .toggle input { accent-color: var(--accent); }
 .choice-item span { border-radius: 99px; }

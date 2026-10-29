@@ -12,7 +12,9 @@ export const onAuthChange = () => {}
 export const signIn = async () => {}
 export const signOut = async () => location.reload()
 export const isMember = async () => true
-export const fetchAll = async () => structuredClone(db)
+export const fetchAll = async () => { const { docs, glossary, ...rest } = db; return structuredClone(rest) }
+export const fetchDoc = async id => db.docs?.[id] ? { body: db.docs[id], updated_at: db.lastRun.finished_at } : null
+export const fetchGlossary = async () => db.glossary || {}
 export const updateEvaluation = async (id, patch) => upd(db.evaluations, id, patch)
 export const updateMaterial = async (id, patch) => upd(db.materials, id, patch)
 export const updateEvent = async (id, patch) => upd(db.events, id, patch)

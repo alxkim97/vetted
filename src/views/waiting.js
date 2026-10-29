@@ -1,5 +1,5 @@
 // What's stuck: open document requests, CoAs with no comparison yet, and
-// ขาด stamps where no request has been logged.
+// Missing (ขาด) stamps where no request has been logged.
 import { state } from '../store.js'
 import { fmtDate, waitTone, daysBetween, todayIso } from '../model.js'
 import { esc, icon } from '../ui.js'
@@ -37,9 +37,9 @@ export function renderWaiting() {
         ? awaiting.map(r => item(r, `<span class="wait big w-${waitTone(r.firstDocs ? daysBetween(r.firstDocs, today) : null)}">${r.firstDocs ? daysBetween(r.firstDocs, today) + ' d' : '—'}</span>`,
             `Documents since ${fmtDate(r.firstDocs)} · <span class="mono">${esc(r.folder)}</span>`)).join('')
         : '<p class="empty">Every candidate folder with documents has a comparison file.</p>')}
-      ${card('ขาด with no request logged', 'alert', `${gapNoAsk.length}`, gapNoAsk.length
+      ${card('Missing, with no request logged', 'alert', `${gapNoAsk.length}`, gapNoAsk.length
         ? gapNoAsk.map(r => item(r, r.ageDays != null ? `<span class="wait big w-${waitTone(r.ageDays)}">${r.ageDays} d</span>` : '',
             esc(r.nextAction || r.verdictLine || 'Missing data, but nothing has been asked for yet'))).join('')
-        : '<p class="empty">Every ขาด has a request on file.</p>')}
+        : '<p class="empty">Every Missing stamp has a request on file.</p>')}
     </div>`
 }
