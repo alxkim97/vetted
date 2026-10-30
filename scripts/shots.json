@@ -1,9 +1,6 @@
 {"url":"http://localhost:5182/","out":".shots","jobs":[
- {"name":"register","w":1440,"h":900,"js":"document.querySelector('[data-view=register]').click()"},
- {"name":"register-later","w":1440,"h":900,"js":"document.querySelector('[data-view=register]').click(); document.querySelector('[data-act=project][data-value=later]').click(); document.querySelector('#show-old').click(); 1"},
- {"name":"register-dropdown","w":1440,"h":900,"js":"document.querySelector('[data-view=register]').click(); const s = document.querySelector('#product'); s.size = 18; s.style.position = 'absolute'; s.style.zIndex = 50; s.style.background = 'var(--surface)'; s.style.height = 'auto'; 1"},
- {"name":"materials","w":1440,"h":1000,"js":"document.querySelector('[data-view=materials]').click()"},
- {"name":"materials-ltc-left","w":1440,"h":1000,"js":"document.querySelector('[data-view=materials]').click(); document.querySelector('[data-act=project][data-value=ltc]').click(); new Promise(res => setTimeout(() => { document.querySelector('.left-panel').scrollIntoView(); res(1) }, 300))"},
- {"name":"materials-ltc-left2","w":1440,"h":1000,"js":"document.querySelector('[data-view=materials]').click(); document.querySelector('[data-act=project][data-value=ltc]').click(); new Promise(res => setTimeout(() => { document.querySelector('.left-panel tbody tr:nth-child(18)').scrollIntoView(); res(1) }, 300))"},
- {"name":"materials-dev-dark","w":1440,"h":900,"theme":"dark","js":"document.querySelector('[data-view=materials]').click(); document.querySelector('[data-act=project][data-value=dev]').click(); 1"}
+ {"name":"home","w":1440,"h":900,"js":"new Promise(res => setTimeout(() => res(1), 1500))"},
+ {"name":"home-bottom","w":1440,"h":900,"js":"new Promise(res => setTimeout(() => { document.querySelector('.content').scrollTop = 9999; res(1) }, 1500))"},
+ {"name":"home-bottom-dark","w":1440,"h":900,"theme":"dark","js":"new Promise(res => setTimeout(() => { document.querySelector('.content').scrollTop = 9999; res(1) }, 1500))"},
+ {"name":"home-narrow-projects","w":1000,"h":900,"js":"new Promise(res => setTimeout(() => { document.querySelector('.hcard.projects').scrollIntoView(); res(1) }, 1500))"}
 ]}

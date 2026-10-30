@@ -1,7 +1,7 @@
-// Home: four cards that each answer one question.
-//   This week · Needs action · Waiting on documents · Turnaround
+// Home: cards that each answer one question.
+//   This week · Needs action · Waiting on documents · Turnaround · By project
 import { state, GROUPS, groupOf } from '../store.js'
-import { STATUS, EVENT_KINDS, fmtDate, todayIso, waitTone } from '../model.js'
+import { STATUS, EVENT_KINDS, PROJECTS, fmtDate, todayIso, waitTone, notEvaluated } from '../model.js'
 import { esc, icon } from '../ui.js'
 
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
@@ -129,6 +129,42 @@ function turnaroundCard() {
     </section>`
 }
 
+// Stamps per project, plus how many BOM materials in it have no evaluation yet.
+// An evaluation counts once in every project its products belong to.
+const BUCKETS = [
+  ['pass', 'Pass or approved', 'green', s => s === 'pass' || s === 'closed_ok'],
+  ['gap', 'Missing', 'amber', s => s === 'gap'],
+  ['fail', 'Fail or not approved', 'red', s => s === 'fail' || s === 'closed_no'],
+  ['none', 'No stamp yet', 'grey', () => true],
+]
+function projectsCard() {
+  const prods = state.data.products || []
+  if (!prods.length) return ''
+  const list = Object.entries(PROJECTS).map(([k, label]) => {
+    const rs = state.rows.filter(r => r.products.some(p => state.projectOf[p.name] === k))
+    const c = Object.fromEntries(BUCKETS.map(([b]) => [b, 0]))
+    for (const r of rs) c[BUCKETS.find(([, , , test]) => test(r.status))[0]]++
+    const bom = prods.filter(p => p.project === k && p.bom?.length)
+    const missing = bom.length ? notEvaluated(bom, state.data.materials).filter(x => !x.note).length : null
+    return { k, label, n: rs.length, c, missing }
+  }).filter(x => x.n || x.missing)
+  return `
+    <section class="hcard projects">
+      <div class="hcard-head"><h2>${icon('layers', 18)} By project</h2></div>
+      <div class="pj-legend">${BUCKETS.map(([, l, tone]) => `<span><i class="t-${tone}"></i>${l}</span>`).join('')}</div>
+      <div class="pj-list">
+        ${list.map(x => `
+          <div class="pj">
+            <button class="pj-name" data-act="to-project" data-value="${x.k}">${esc(x.label)} <span class="muted">${x.n} evaluation${x.n === 1 ? '' : 's'}</span></button>
+            <div class="pj-bar" role="img" aria-label="${BUCKETS.map(([b, l]) => `${l}: ${x.c[b]}`).join(', ')}">
+              ${x.n ? BUCKETS.filter(([b]) => x.c[b]).map(([b, l, tone]) => `<span class="t-${tone}" style="flex:${x.c[b]}" title="${l}: ${x.c[b]}">${x.c[b]}</span>`).join('') : '<span class="empty-bar">No evaluation yet</span>'}
+            </div>
+            ${x.missing ? `<button class="pj-miss" data-act="to-materials" data-value="${x.k}">${x.missing} not evaluated yet</button>` : '<span></span>'}
+          </div>`).join('')}
+      </div>
+    </section>`
+}
+
 export function renderHome() {
-  return `<div class="home">${weekCard()}${actionCard()}${waitingCard()}${turnaroundCard()}</div>`
+  return `<div class="home">${weekCard()}${actionCard()}${waitingCard()}${turnaroundCard()}${projectsCard()}</div>`
 }

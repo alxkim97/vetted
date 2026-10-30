@@ -146,7 +146,7 @@ function shell() {
       <main class="main">
         ${pageHead()}
         <div class="content view-${state.view}">${content()}</div>
-        <p class="version">v${__APP_VERSION__}${import.meta.env.MODE === 'demo' ? ' · demo data' : ''}</p>
+        <p class="version">v${__APP_VERSION__} · Alex Kim${import.meta.env.MODE === 'demo' ? ' · demo data' : ''}</p>
       </main>
     </div>`
 }
@@ -250,6 +250,8 @@ root.addEventListener('click', async e => {
     case 'theme': savePrefs({ theme: value }); applyTheme(value); return render()
     case 'day': state.homeDay = state.homeDay === value ? null : value; return render()
     case 'to-register': state.filter = { ...state.filter, group: 'action', sub: value, q: '' }; return setView('register')
+    case 'to-project': state.filter = { ...state.filter, project: value, product: '', group: 'all', sub: null, q: '' }; return setView('register')
+    case 'to-materials': state.filter = { ...state.filter, project: value, product: '' }; return setView('materials')
     case 'update': return window.electronAPI?.checkForUpdates()
     case 'signout': await signOut(); return
   }
