@@ -11,7 +11,7 @@ const scan = scanFolder(root)
 if (process.argv.includes('--dry')) {
   for (const e of scan.evaluations) {
     const t = e.tracker
-    console.log([e.material_folder, e.grade || '', t.candidate || e.candidate || '', e.rev != null ? `R.${e.rev}` : 'no file', t.stamp || (e.verdict_line ? 'verdict line' : 'not readable')].join(' | '))
+    console.log([e.material_folder, e.grade || '', t.candidate || e.candidate || '', e.rev != null ? `R.${e.rev}` : 'no file', t.outcome || t.coa || (e.verdict_line ? 'verdict line' : 'not readable')].join(' | '))
   }
   console.log(`\n${scan.materials.length} materials · ${scan.evaluations.length} evaluations · ${scan.events.length} document folders`)
   process.exit(0)

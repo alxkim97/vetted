@@ -19,5 +19,9 @@ export const updateEvaluation = async (id, patch) => upd(db.evaluations, id, pat
 export const updateMaterial = async (id, patch) => upd(db.materials, id, patch)
 export const updateEvent = async (id, patch) => upd(db.events, id, patch)
 export const addEvent = async ev => { const r = { id: uid(), source: 'app', closed_on: null, created_at: new Date().toISOString(), ...ev }; db.events.push(r); return structuredClone(r) }
-export const deleteEvent = async id => { db.events = db.events.filter(x => x.id !== id) }
+export const deleteEvent = async id => { db.events = db.events.filter(x => x.id !== id); db.evidence = (db.evidence || []).filter(x => x.event_id !== id) }
+// Evidence images stay in memory as object URLs; the demo's own examples are data URLs.
+export const addEvidence = async (ev, file) => { const r = { id: uid(), event_id: ev.id, path: URL.createObjectURL(file), file_name: file.name || null, created_at: new Date().toISOString() }; (db.evidence ||= []).push(r); return structuredClone(r) }
+export const deleteEvidence = async row => { db.evidence = db.evidence.filter(x => x.id !== row.id) }
+export const evidenceUrls = async paths => Object.fromEntries(paths.map(p => [p, p]))
 export const runScan = async () => { throw new Error('Demo mode: scanning is off') }

@@ -238,15 +238,20 @@ root.addEventListener('click', async e => {
       return window.electronAPI?.openPath({ root: state.prefs.root, rel: `${r.folder}/${r.fileName}` })
     }
     case 'scan': return scan()
-    case 'received':
+    case 'received': {
       e.stopPropagation()
+      // Undo puts the request back the way it was (an easy misclick on the Waiting list).
+      const setClosed = async closed_on => {
+        const row = await updateEvent(id, { closed_on })
+        state.data.events[state.data.events.findIndex(x => x.id === id)] = row
+        setData(state.data); cacheData(); render()
+      }
       try {
-        const row = await updateEvent(id, { closed_on: todayIso() })
-        const i = state.data.events.findIndex(x => x.id === id)
-        state.data.events[i] = row
-        setData(state.data); cacheData(); toast('Marked received'); render()
+        await setClosed(todayIso())
+        toast('Marked received', { label: 'Undo', run: () => setClosed(null).then(() => toast('Request reopened'), err => toast(err.message)) })
       } catch (err) { toast(err.message) }
       return
+    }
     case 'theme': savePrefs({ theme: value }); applyTheme(value); return render()
     case 'day': state.homeDay = state.homeDay === value ? null : value; return render()
     case 'to-register': state.filter = { ...state.filter, group: 'action', sub: value, q: '' }; return setView('register')

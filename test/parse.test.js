@@ -1,10 +1,10 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseTracker, verdictLine, revOf, gradeAndCandidate, candidateFromBody, suggestStamp, isComparisonFile, normStamp } from '../lib/parse.js'
+import { normStage, parseTracker, verdictLine, revOf, gradeAndCandidate, candidateFromBody, suggestStamp, isComparisonFile, normStamp } from '../lib/parse.js'
 
 test('tracker block', () => {
   const t = parseTracker('# X\n<!-- rm-tracker\nstamp: ขาด\ncandidate: Supplier A\navl_listed: yes\nkind: Excipient\nverdict_date: 261008\n-->\n')
-  assert.deepEqual(t, { stamp: 'gap', candidate: 'Supplier A', avl_listed: true, kind: 'excipient', verdict_date: '2026-10-08' })
+  assert.deepEqual(t, { stamp: 'gap', coa: 'gap', candidate: 'Supplier A', avl_listed: true, kind: 'excipient', verdict_date: '2026-10-08' })
   assert.equal(parseTracker('no block'), null)
   assert.equal(normStamp('ไม่ผ่าน'), 'fail')
 })
@@ -54,4 +54,13 @@ test('stamp suggestions only when the line says it', () => {
   assert.equal(suggestStamp('FAIL — 1 critical Fail (pH)'), 'fail')
   assert.equal(suggestStamp('Confirm — not yet an unconditional Pass.'), 'gap')
   assert.equal(suggestStamp('All 12 formal USP39 Hypromellose monograph tests covered'), null)
+})
+
+test('tracker stage lines; an old stamp line fills only what is missing', () => {
+  assert.deepEqual(parseTracker('<!-- rm-tracker\ncoa: ผ่าน\ndocs: pending\nqc: not approved\navl: confirmed\n-->'),
+    { coa: 'pass', docs: null, qc: 'not_approved', avl_listed: true })
+  assert.deepEqual(parseTracker('<!-- rm-tracker\nstamp: closed-approved\n-->'), { stamp: 'closed_ok', outcome: 'approved' })
+  assert.deepEqual(parseTracker('<!-- rm-tracker\nstamp: ขาด\ncoa: pass\noutcome: maybe\n-->'), { stamp: 'gap', coa: 'pass' })
+  assert.equal(normStage('outcome', 'Closed'), 'closed')
+  assert.equal(normStage('coa', 'approved'), undefined)
 })

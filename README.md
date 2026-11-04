@@ -29,12 +29,19 @@ Raw Material Evaluation Document\ ──(lib/scanner.js: desktop Re-scan, daily 
                    Vetted app (web / desktop) ── reads, stamps, timeline entries ───┘
 ```
 
-- `lib/parse.js`: file names, Tracker block, verdict line, stamp suggestion. Pure and tested.
+- `lib/parse.js`: file names, Tracker block (stage lines), verdict line, stamp suggestion. Pure and tested.
 - `lib/scanner.js`: walks the folder (read-only). `lib/sync.js` writes only scan-owned columns, so
-  stamps, notes and logged events survive every rescan.
+  stages, notes and logged events survive every rescan.
 - Precedence for a field: the file's Tracker block, then the value set in the app or by `rm-log`, then the scanner's guess.
+- Stages (v0.6): AVL check (`avl_listed`) → CoA → Docs → QC sample, then an outcome. `model.js`
+  `statusOf` turns them into one status: Approved / Not approved / Closed once there's an outcome,
+  Fail for a failed stage, In progress while a data request is open (a `topic: 'form'` paperwork
+  request doesn't count), otherwise Missing (nothing requested yet).
 - `src/`: the app. `model.js` derives status and durations, `views/` holds Register, Waiting,
-  Materials and Settings, and `detail.js` is the evaluation sheet with its timeline.
+  Materials and Settings, and `detail.js` is the evaluation sheet with its stages and timeline.
+- Evidence images (LINE screenshots, emails, form scans) attach to timeline entries: rows in
+  `rm_evidence`, files in the private `rm-evidence` Storage bucket (members only, signed links).
+  Never commit them; local copies live in the git-ignored `.secrets\evidence\`.
 - Full evaluation page (`views/evaluation.js`): the scan stores each comparison file in
   `rm_eval_docs`; `lib/doc.js` turns it into spreadsheet tables, marks Fail / Missing / Confirm
   rows from the Verdict or Status column, and translates Thai to English (form words built in,

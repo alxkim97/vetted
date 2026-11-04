@@ -12,8 +12,8 @@ const arrow = (view, label) => `<button class="go" data-act="nav" data-view="${v
 
 export function homeSummary() {
   const action = state.rows.filter(r => groupOf(r, 'action')).length
-  const waiting = state.rows.reduce((n, r) => n + r.openRequests.length, 0)
-  return `${action} need${action === 1 ? 's' : ''} action · ${waiting} waiting on documents`
+  const progress = state.rows.filter(r => groupOf(r, 'progress')).length
+  return `${action} need${action === 1 ? 's' : ''} action · ${progress} in progress`
 }
 
 // Everything dated in the last 7 days: timeline entries plus new comparison revisions.
@@ -68,7 +68,7 @@ function actionCard() {
   const tile = s => {
     const n = state.rows.filter(r => groupOf(r, 'action') && r.status === s).length
     return `<button class="ntile t-${STATUS[s].tone}" data-act="to-register" data-value="${s}">
-      <b>${n}</b><span>${esc(STATUS[s].label)}</span><small>${esc(STATUS[s].hint || (s === 'fail' ? 'Failed the CoA check' : 'Data missing, ask for more'))}</small></button>`
+      <b>${n}</b><span>${esc(STATUS[s].label)}</span><small>${esc(STATUS[s].hint)}</small></button>`
   }
   const total = state.rows.filter(r => groupOf(r, 'action')).length
   return `
@@ -129,13 +129,15 @@ function turnaroundCard() {
     </section>`
 }
 
-// Stamps per project, plus how many BOM materials in it have no evaluation yet.
+// Statuses per project, plus how many BOM materials in it have no evaluation yet.
 // An evaluation counts once in every project its products belong to.
 const BUCKETS = [
-  ['pass', 'Pass or approved', 'green', s => s === 'pass' || s === 'closed_ok'],
-  ['gap', 'Missing', 'amber', s => s === 'gap'],
-  ['fail', 'Fail or not approved', 'red', s => s === 'fail' || s === 'closed_no'],
-  ['none', 'No stamp yet', 'grey', () => true],
+  ['approved', 'Approved', 'green', s => s === 'approved'],
+  ['progress', 'In progress', 'blue', s => s === 'in_progress'],
+  ['missing', 'Missing', 'amber', s => s === 'missing'],
+  ['fail', 'Fail or not approved', 'red', s => s === 'fail' || s === 'not_approved'],
+  ['closed', 'Closed', 'slate', s => s === 'closed'],
+  ['none', 'Not stamped yet', 'grey', () => true],
 ]
 function projectsCard() {
   const prods = state.data.products || []

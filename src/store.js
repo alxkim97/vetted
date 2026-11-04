@@ -48,10 +48,11 @@ export function restoreCache() {
 export const clearCache = () => { try { localStorage.removeItem(CACHE_KEY) } catch {} }
 
 // Status groups behind the four tiles. "Old" = verdict only in a count table.
+// Needs action = Alex's move; In progress = waiting on someone else.
 export const GROUPS = {
-  action: ['fail', 'gap', 'awaiting', 'untagged'],
-  pass: ['pass'],
-  closed: ['closed_ok', 'closed_no'],
+  action: ['missing', 'fail', 'awaiting', 'untagged'],
+  progress: ['in_progress'],
+  closed: ['approved', 'not_approved', 'closed'],
 }
 const isClosed = r => GROUPS.closed.includes(r.status)
 // Closed and old-format rows stay out of the way unless asked for.

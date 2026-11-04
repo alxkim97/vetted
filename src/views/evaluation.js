@@ -3,6 +3,7 @@
 import { state } from '../store.js'
 import { STATUS, fmtDate, productNames } from '../model.js'
 import { esc, icon } from '../ui.js'
+import { stageMarks } from './register.js'
 import { parseDoc, issuesOf, tally, toEnglish, cellGap, plain } from '../../lib/doc.js'
 
 const TONE_LABEL = { fail: 'Fail', missing: 'Missing', confirm: 'Confirm', pending: 'Pending', pass: 'Pass', na: 'N/A' }
@@ -125,7 +126,7 @@ export function renderEvaluation() {
     </div>
     <header class="fe-head">
       <p class="eyebrow">${esc([r.materialName, r.grade].filter(Boolean).join(' · '))}</p>
-      <div class="fe-title"><h1>${r.candidate ? esc(r.candidate) : 'Candidate not set'}</h1><span class="stamp big t-${STATUS[r.status].tone}">${esc(STATUS[r.status].label)}</span></div>
+      <div class="fe-title"><h1>${r.candidate ? esc(r.candidate) : 'Candidate not set'}</h1><span class="stamp big t-${STATUS[r.status].tone}">${esc(STATUS[r.status].label)}</span>${stageMarks(r)}</div>
       <div class="fe-meta">
         ${r.rev != null ? `<span>R.${r.rev} · ${fmtDate(r.revDate)}</span>` : ''}
         ${r.itemCode ? `<span class="mono">${esc(r.itemCode)}</span>` : ''}

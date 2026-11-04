@@ -139,6 +139,42 @@ create table if not exists rm_products (
 alter table rm_products enable row level security;
 drop policy if exists "members" on rm_products;
 create policy "members" on rm_products for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
+
+-- ── Stages, request topics, evidence images (v0.6.0) ───────────────────
+-- An evaluation moves AVL check (rm_evaluations.avl_listed) → CoA → Docs →
+-- QC sample, and ends with an outcome. stamp stays for older app versions;
+-- the two updates copy it across once.
+alter table rm_evaluations add column if not exists coa     text check (coa in ('pass', 'gap', 'fail'));
+alter table rm_evaluations add column if not exists docs    text check (docs in ('pass', 'gap', 'fail'));
+alter table rm_evaluations add column if not exists qc      text check (qc in ('approved', 'not_approved'));
+alter table rm_evaluations add column if not exists outcome text check (outcome in ('approved', 'not_approved', 'closed'));
+update rm_evaluations set coa = stamp where coa is null and stamp in ('pass', 'gap', 'fail');
+update rm_evaluations set outcome = case stamp when 'closed_ok' then 'approved' else 'not_approved' end
+  where outcome is null and stamp in ('closed_ok', 'closed_no');
+-- 'form' = asking for paperwork (a signed Selection Form), which doesn't move
+-- a row to In progress; null = asking for the missing data or documents.
+alter table rm_events add column if not exists topic text check (topic in ('form'));
+
+-- Images that prove a message or request was sent (LINE screenshot, email,
+-- annotated form scan). The files live in the private rm-evidence bucket.
+create table if not exists rm_evidence (
+  id         uuid primary key default gen_random_uuid(),
+  event_id   uuid not null references rm_events(id) on delete cascade,
+  path       text not null unique,   -- object path in the rm-evidence bucket
+  file_name  text,
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now()
+);
+create index if not exists rm_evidence_event_idx on rm_evidence (event_id);
+alter table rm_evidence enable row level security;
+drop policy if exists "members" on rm_evidence;
+create policy "members" on rm_evidence for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
+
+insert into storage.buckets (id, name, public) values ('rm-evidence', 'rm-evidence', false) on conflict (id) do nothing;
+drop policy if exists "rm-evidence members" on storage.objects;
+create policy "rm-evidence members" on storage.objects for all to authenticated
+  using (bucket_id = 'rm-evidence' and is_worklog_member())
+  with check (bucket_id = 'rm-evidence' and is_worklog_member());
 ```
 
 ## `.env.local` (scheduled scan and `rm-log`)

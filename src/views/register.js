@@ -1,10 +1,16 @@
 // The main grid: one row per candidate evaluation, spreadsheet-style.
 // Six columns by default; "More columns" brings back the rest.
 import { state, filteredRows, companies, productGroups, hasProjects, groupOf, inToolbar, GROUPS } from '../store.js'
-import { STATUS, PROJECTS, fmtDate, waitTone, productNames } from '../model.js'
+import { STATUS, STAGES, OUTCOMES, PROJECTS, fmtDate, waitTone, productNames, stageWord } from '../model.js'
 import { esc, icon } from '../ui.js'
 
 export const pill = s => `<span class="stamp t-${STATUS[s].tone}">${esc(STATUS[s].label)}</span>`
+
+// AVL · CoA · Docs · QC as four small marks, coloured by result; faint = not yet.
+export const stageMarks = r => `<span class="stages">${STAGES.map(s => {
+  const [word, tone] = stageWord(s.key, r.stages[s.key])
+  return `<span class="stg t-${tone}" title="${s.label}: ${word}">${s.short}</span>`
+}).join('')}</span>`
 
 // Lower the Cost / Added later / … — shared by Register and Materials.
 export const projectSeg = () => hasProjects() ? `
@@ -16,7 +22,7 @@ const days = d => d == null ? dash : `<span class="num">${d}</span><span class="
 
 const TILES = [
   ['action', 'Needs action', 'amber'],
-  ['pass', 'Pass', 'green'],
+  ['progress', 'In progress', 'blue'],
   ['closed', 'Closed', 'slate'],
   ['all', 'All open', ''],
 ]
@@ -25,7 +31,7 @@ function toolbar() {
   const f = state.filter
   const base = state.rows.filter(inToolbar)
   const count = g => base.filter(r => groupOf(r, g)).length
-  const subs = f.group === 'action' ? GROUPS.action.map(s => [s, base.filter(r => groupOf(r, 'action') && r.status === s).length]).filter(([, n]) => n) : []
+  const subs = GROUPS[f.group]?.length > 1 ? GROUPS[f.group].map(s => [s, base.filter(r => groupOf(r, f.group) && r.status === s).length]).filter(([, n]) => n) : []
   return `
     <section class="tally" aria-label="Filter by status">
       ${TILES.map(([g, label, tone]) => `
@@ -68,15 +74,15 @@ const COLUMNS = [
   ['Material', r => `<div class="mat">${esc(r.materialName)}</div>${r.grade ? `<div class="sub2">${esc(r.grade)}</div>` : ''}`, 'c-mat'],
   ['Candidate', r => r.candidate ? esc(r.candidate) : '<span class="nil">not set</span>'],
   ['Manufacturer', r => r.manufacturer || r.supplier ? `${esc(r.manufacturer || '')}${r.supplier && r.supplier !== r.manufacturer ? `<div class="sub2">via ${esc(r.supplier)}</div>` : ''}` : dash, '', true],
-  ['AVL', r => r.avl == null ? dash : r.avl ? '<span class="avl yes">AVL</span>' : '<span class="avl no">New</span>', 'c-avl', true],
-  ['Stamp', r => pill(r.status)],
+  ['Status', r => pill(r.status)],
+  ['Stages', r => stageMarks(r), 'c-stages'],
   ['Docs in', r => r.firstDocs ? fmtDate(r.firstDocs) : dash, 'mono', true],
   ['To verdict', r => days(r.daysToVerdict), 'c-num', true],
   ['Open for', r => days(r.ageDays), 'c-num'],
   ['Waiting on docs', r => r.waitingDays != null ? `<span class="wait w-${waitTone(r.waitingDays)}">${r.waitingDays} d${r.openRequests.length > 1 ? ` · ${r.openRequests.length} asks` : ''}</span>` : dash],
   ['Last message', r => r.lastMessage ? `<div class="mono">${fmtDate(r.lastMessage.event_date)}${r.lastMessage.party ? ` · ${esc(r.lastMessage.party)}` : ''}</div><div class="sub2 clip">${esc(r.lastMessage.note || r.lastMessage.what || '')}</div>` : dash, 'c-msg', true],
   ['Rev', r => r.rev != null ? `R.${r.rev} <span class="nil">·</span> ${fmtDate(r.revDate)}` : dash, 'mono', true],
-  ['Next action', r => r.nextAction ? esc(r.nextAction) : dash, 'c-next'],
+  ['Next action', r => r.nextAction ? esc(r.nextAction) : r.nextStep ? `<span class="muted">${esc(r.nextStep)}</span>` : dash, 'c-next'],
 ]
 
 export function renderRegister() {
@@ -100,11 +106,12 @@ export function renderRegister() {
 // CSV of exactly what's on screen, every column. UTF-8 BOM so Excel shows Thai correctly.
 export function exportCsv() {
   const rows = filteredRows()
-  const head = ['Material', 'Grade', 'Candidate', 'Manufacturer', 'Supplier', 'AVL', 'Kind', 'Item code', 'Products', 'Stamp', 'Verdict line', 'Docs in', 'Days to verdict', 'Open for (d)', 'Waiting (d)', 'Open requests', 'Last message', 'Rev', 'Rev date', 'Next action', 'Folder']
+  const head = ['Material', 'Grade', 'Candidate', 'Manufacturer', 'Supplier', 'Kind', 'Item code', 'Products', 'Status', ...STAGES.map(s => s.label), 'Outcome', 'Verdict line', 'Docs in', 'Days to verdict', 'Open for (d)', 'Waiting (d)', 'Open requests', 'Last message', 'Rev', 'Rev date', 'Next action', 'Folder']
   const q = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s }
-  const lines = rows.map(r => [r.materialName, r.grade, r.candidate, r.manufacturer, r.supplier, r.avl == null ? '' : r.avl ? 'Yes' : 'No', r.kind, r.itemCode, productNames(r.products).join('; '), STATUS[r.status].label, r.verdictLine,
-    fmtDate(r.firstDocs), r.daysToVerdict, r.ageDays, r.waitingDays, r.openRequests.map(x => x.what).join('; '),
-    r.lastMessage ? `${fmtDate(r.lastMessage.event_date)} ${r.lastMessage.party || ''}: ${r.lastMessage.note || r.lastMessage.what || ''}` : '', r.rev != null ? `R.${r.rev}` : '', fmtDate(r.revDate), r.nextAction, r.folder].map(q).join(','))
+  const lines = rows.map(r => [r.materialName, r.grade, r.candidate, r.manufacturer, r.supplier, r.kind, r.itemCode, productNames(r.products).join('; '), STATUS[r.status].label,
+    ...STAGES.map(s => r.stages[s.key] == null ? '' : stageWord(s.key, r.stages[s.key])[0]), OUTCOMES.find(([v]) => v === r.stages.outcome)?.[1] ?? '', r.verdictLine,
+    fmtDate(r.firstDocs), r.daysToVerdict, r.ageDays, r.waitingDays, r.openRequests.map(x => (x.topic === 'form' ? '[form] ' : '') + (x.what || '')).join('; '),
+    r.lastMessage ? `${fmtDate(r.lastMessage.event_date)} ${r.lastMessage.party || ''}: ${r.lastMessage.note || r.lastMessage.what || ''}` : '', r.rev != null ? `R.${r.rev}` : '', fmtDate(r.revDate), r.nextAction || r.nextStep, r.folder].map(q).join(','))
   const blob = new Blob(['﻿' + [head.join(','), ...lines].join('\r\n')], { type: 'text/csv;charset=utf-8' })
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(blob), download: `Vetted ${new Date().toISOString().slice(2, 10).replace(/-/g, '')}.csv` })
   a.click()
