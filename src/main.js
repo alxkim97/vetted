@@ -37,6 +37,12 @@ function parseHash() {
 const pre = () => state.viewToken ? `#/v/${state.viewToken}` : '#'
 const go = path => { location.hash = `${pre()}${path}` }
 
+// A brief highlight that always clears (with animations off it would otherwise stay).
+function flash(el) {
+  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash')
+  clearTimeout(el._flashT); el._flashT = setTimeout(() => el.classList.remove('flash'), 1600)
+}
+
 // Where each list page was scrolled to when an evaluation was opened from it,
 // so the back link lands in the same place.
 const scrollMemo = {}
@@ -64,7 +70,7 @@ function route() {
     window.scrollTo(0, back)
     // The row you came from, briefly highlighted.
     const tr = state.evalId && document.querySelector(`tr[data-id="${state.evalId}"]`)
-    if (tr) { tr.classList.remove('flash'); void tr.offsetWidth; tr.classList.add('flash') }
+    if (tr) flash(tr)
   } else if (prevView !== state.view || page === 'e') window.scrollTo(0, 0)
 }
 window.addEventListener('hashchange', route)
@@ -257,7 +263,7 @@ function jumpTo(elId) {
   const sec = el.closest('details')
   if (sec && !sec.open) sec.open = true
   el.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
-  el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash')
+  flash(el)
 }
 
 root.addEventListener('toggle', e => {

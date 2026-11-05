@@ -66,7 +66,7 @@ export const CHIPS = [
   ['missing', 'Missing', 'amber', ['missing', 'fail', 'awaiting', 'untagged']],
   ['in_progress', 'In progress', 'blue', ['in_progress']],
   ['approved', 'Approved', 'green', ['approved']],
-  ['not_approved', 'Not approved', 'slate', ['not_approved']],
+  ['not_approved', 'Not approved', 'red', ['not_approved']],
   ['closed', 'Closed', 'ink', ['closed']],
 ]
 export const YOUR_MOVE = CHIPS[0][3]

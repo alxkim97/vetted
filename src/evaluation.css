@@ -66,7 +66,10 @@
 .note-ref:hover { text-decoration-color: var(--blue); }
 [id^="note-"].flash, tr.flash > * { animation: fe-flash 1.6s ease-out; }
 @keyframes fe-flash { 0%, 30% { box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--yellow) 45%, transparent); } 100% { box-shadow: inset 0 0 0 9999px transparent; } }
-@media (prefers-reduced-motion: reduce) { [id^="note-"].flash, tr.flash > * { animation: none; outline: 2px solid var(--yellow); } }
+@media (prefers-reduced-motion: reduce) {
+  [id^="note-"].flash { animation: none; box-shadow: inset 0 0 0 9999px color-mix(in srgb, var(--yellow) 35%, transparent); }
+  tr.flash > * { animation: none; background: var(--surface-2); }
+}
 
 /* ── The grid ── */
 .xl-wrap { overflow: auto; max-height: 72vh; border: 1px solid var(--border-2); border-radius: 10px; background: var(--surface); }

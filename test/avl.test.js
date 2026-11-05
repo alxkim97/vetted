@@ -56,9 +56,9 @@ test('closed: CoA from the verdict, or Fail for a Not approved with nothing else
 test('AVL station: Listed, Not listed, or not checked; a hand-set value wins', () => {
   const m = listed => ({ file_date: '2026-10-22', listed, manufacturer: 'Maker Ltd', material: 'Material A', date: '2026-10-06' })
   const [a] = buildRows({ materials, evaluations: [{ ...base, outcome: 'approved', avl_match: m(true) }], events: [] })
-  assert.deepEqual([a.stations[0].result, a.stations[0].tone, a.stations[0].state], ['Listed', 'green', 'done'])
+  assert.deepEqual([a.stations[0].result, a.stations[0].tone, a.stations[0].state], ['Listed', 'grey', 'done'])
   const [b] = buildRows({ materials, evaluations: [{ ...base, outcome: 'approved', avl_match: m(false) }], events: [] })
-  assert.deepEqual([b.stations[0].result, b.stations[0].tone], ['Not listed', 'grey'])
+  assert.deepEqual([b.stations[0].result, b.stations[0].tone], ['Not listed', 'green'])
   const [c] = buildRows({ materials, evaluations: [{ ...base, avl_match: { file_date: '2026-10-22', listed: null, review: [{ manufacturer: 'Maker', material: 'Material A Type A', active: true }] } }], events: [] })
   assert.deepEqual([c.stations[0].result, c.stations[0].state], ['Not checked', 'skipped'])
   const [d] = buildRows({ materials, evaluations: [{ ...base, avl_listed: true, avl_match: m(false) }], events: [] })
@@ -70,4 +70,9 @@ test('a Thai name in brackets after an English supplier is the same supplier', (
   assert.equal(r.supplier, 'Acme Trading Co., Ltd.')
   const [t] = buildRows({ materials, evaluations: [{ ...base, supplier: 'บจก. ตัวอย่าง' }], events: [] })
   assert.equal(t.supplier, 'บจก. ตัวอย่าง')
+})
+
+test('an open evaluation whose source is already on the AVL is told to close', () => {
+  const [r] = buildRows({ materials, evaluations: [{ ...base, coa: 'pass', avl_match: { file_date: '2026-10-22', listed: true, manufacturer: 'Maker Ltd', material: 'Material A' } }], events: [] })
+  assert.equal(r.nextStep, 'Already on the AVL: close the evaluation')
 })

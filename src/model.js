@@ -19,7 +19,7 @@ export const STATUS = {
 
 // The four stages in order, and what each value reads as. avl is rm_evaluations.avl_listed.
 export const STAGES = [
-  { key: 'avl', label: 'AVL check', short: 'AVL', values: [[true, 'Listed', 'green'], [false, 'Not listed', 'grey']] },
+  { key: 'avl', label: 'AVL check', short: 'AVL', values: [[true, 'Listed', 'grey'], [false, 'Not listed', 'green']] },
   { key: 'coa', label: 'CoA', short: 'CoA', values: [['pass', 'Pass', 'green'], ['gap', 'Missing', 'amber'], ['fail', 'Fail', 'red']] },
   { key: 'docs', label: 'Docs', short: 'Docs', values: [['pass', 'Pass', 'green'], ['gap', 'Missing', 'amber'], ['fail', 'Fail', 'red']] },
   { key: 'qc', label: 'QC sample', short: 'QC', values: [['approved', 'Approved', 'green'], ['not_approved', 'Not approved', 'red']] },
@@ -146,7 +146,7 @@ export function buildRows({ materials, evaluations, events }) {
       products: productsFor(m, e.grade),
       nextAction: t.next_action || e.next_action || null,
       fromFile: new Set(Object.keys(t)),
-      stages, status, nextStep: nextStep(stages),
+      stages, status, nextStep: !stages.outcome && (stages.avl ?? e.avl_match?.listed) === true ? 'Already on the AVL: close the evaluation' : nextStep(stages),
       // The verdict line's own word, offered as a one-click CoA result or outcome.
       suggested: stages.coa || stages.outcome ? null : suggestStamp(e.verdict_line),
       verdictLine: e.verdict_line ? toEnglish(e.verdict_line) : null,
@@ -201,7 +201,7 @@ export function stageDates(stages, evs, b) {
 // evaluation closed early).
 export const STATIONS = [['avl', 'AVL'], ['coa', 'CoA'], ['docs', 'Docs'], ['qc', 'QC sample'], ['decision', 'Decision']]
 const RESULT_WORD = {
-  avl: { true: ['Listed', 'green'], false: ['Not listed', 'grey'] },
+  avl: { true: ['Listed', 'grey'], false: ['Not listed', 'green'] },
   coa: { pass: ['Pass', 'green'], gap: ['Missing', 'amber'], fail: ['Fail', 'red'] },
   docs: { pass: ['Pass', 'green'], gap: ['Missing', 'amber'], fail: ['Fail', 'red'] },
   qc: { approved: ['Approved', 'green'], not_approved: ['Not approved', 'red'] },
@@ -217,14 +217,15 @@ export function autoStages(stages, e, { firstDocs } = {}) {
   const auto = {}
   const m = e.avl_match
   const asOf = m?.file_date ? `, list as of ${fmtDate(m.file_date)}` : ''
-  // Three states only: Listed (this material from this manufacturer is on the
-  // AVL, so it has been used and passed before), Not listed, or not checked.
+  // Three states. Listed (grey): this material from this manufacturer is already
+  // on the AVL, used and passed before, so the evaluation can close. Not listed
+  // (green): a new source, carry on. Not checked: grey ring.
   if (stages.avl == null && m) {
     if (m.listed === true) {
-      auto.avl = { result: 'Listed', tone: 'green', sub: 'AVL list',
+      auto.avl = { result: 'Listed', tone: 'grey', sub: 'AVL list',
         basis: `On QA's AVL (FR-QA-PC-055) as ${m.manufacturer}, ${m.material}${m.date ? `, ${fmtDate(m.date)}` : ''}${asOf}` }
     } else if (m.listed === false) {
-      auto.avl = { result: 'Not listed', tone: 'grey', sub: 'AVL list',
+      auto.avl = { result: 'Not listed', tone: 'green', sub: 'AVL list',
         basis: m.cancelled ? `On QA's AVL as ${m.manufacturer} but cancelled (${fmtDate(m.date)}), so not listed${asOf}` : `This material from this manufacturer is not on QA's AVL${asOf}` }
     } else if (m.review?.length) {
       auto.avl = { result: 'Not checked', tone: 'ink', sub: 'confirm in Settings', review: true,

@@ -24,6 +24,15 @@ const CSS = title => `
   tr { break-inside: avoid; }
   .n { text-align: right; width: 22px; color: #555; }
   .st { font-weight: 700; white-space: nowrap; }
+  /* Status colours, as in the app: printed as a tinted cell so they survive greyscale too */
+  .s-approved { color: #0b6b35; background: #e3f5ea; }
+  .s-not_approved, .s-fail { color: #b3261e; background: #fde8e7; }
+  .s-missing, .s-untagged { color: #7a5c00; background: #fff3bf; }
+  .s-in_progress { color: #1a56c4; background: #e6eefc; }
+  .s-closed { color: #111; background: #ececec; }
+  .s-awaiting { color: #555; background: #f4f4f4; }
+  .legend span { padding: 1px 7px; border-radius: 9px; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin: 6px 0; }
   .legend b { margin-right: 3px; }
   .line { display: flex; gap: 0; margin: 10px 0; }
@@ -63,16 +72,16 @@ export function printStatusList(rows) {
   const list = rows.filter(r => r.status !== 'unreadable').slice()
     .sort((a, b) => a.materialName.localeCompare(b.materialName) || (a.manufacturer || a.candidate || '').localeCompare(b.manufacturer || b.candidate || ''))
   const title = `Raw Material Evaluation Status List (${fmtDate(todayIso())})`
-  const counts = Object.entries(STATUS).map(([k, s]) => [s.label, list.filter(r => r.status === k).length]).filter(([, n]) => n)
+  const counts = Object.entries(STATUS).map(([k, s]) => [k, s.label, list.filter(r => r.status === k).length]).filter(([, , n]) => n)
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${CSS(title)}</style></head><body>
     <h1>Raw Material Evaluation Status List</h1>
     <p class="muted">APIs and excipients sent by PU for RD evaluation. Generated from Vetted on ${fmtDate(todayIso())}. Sorted A-Z by material.</p>
-    <p class="legend">${counts.map(([l, n]) => `<span><b>${n}</b>${esc(l)}</span>`).join('')}<span><b>${list.length}</b>in total</span></p>
+    <p class="legend">${counts.map(([k, l, n]) => `<span class="s-${k}"><b>${n}</b>${esc(l)}</span>`).join('')}<span><b>${list.length}</b>in total</span></p>
     <p class="muted"><b>Approved</b>: Selection Form approved, or a change control raised to add the source. <b>Not approved</b>: Selection Form not approved, or rejected. <b>Closed</b>: closed without a new approval (source already on the AVL, or a special case). <b>Missing</b>: evaluated; the request for the missing data has not been sent yet. <b>In progress</b>: request sent; waiting for the reply.</p>
     <table><thead><tr><th class="n">#</th><th>Material</th><th>Type</th><th>Item code</th><th>Manufacturer</th><th>Supplier</th><th>Status</th><th>Note</th></tr></thead><tbody>
     ${list.map((r, i) => `<tr><td class="n">${i + 1}</td><td>${esc([r.materialName, r.grade].filter(Boolean).join(' '))}</td><td>${r.kind === 'api' ? 'API' : r.kind === 'excipient' ? 'Excipient' : ''}</td>
       <td>${esc(r.itemCode || 'Not in file')}</td><td>${esc(r.manufacturer || r.candidate || '')}</td><td>${esc(r.supplier || '')}</td>
-      <td class="st">${esc(STATUS[r.status].label)}</td><td>${esc(r.raw.notes || autoNote(r))}</td></tr>`).join('')}
+      <td class="st s-${r.status}">${esc(STATUS[r.status].label)}</td><td>${esc(r.raw.notes || autoNote(r))}</td></tr>`).join('')}
     </tbody></table></body></html>`
   return output(html, { name: 'status-list', rel: '' })
 }

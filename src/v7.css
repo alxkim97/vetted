@@ -129,7 +129,11 @@ a.pill, a.round-btn { text-decoration: none; }
 
 .view-evaluations .sheet { margin-top: 12px; overflow: visible; max-height: none; min-height: 0; }
 .view-evaluations .grid { min-width: 0; table-layout: auto; }
-.grid thead th { position: sticky; top: 66px; z-index: 5; padding: 0; vertical-align: middle; cursor: grab; }
+.grid thead th { position: static; padding: 0; vertical-align: middle; }
+/* Only the Evaluations table keeps its header in view, under the top bar. A table
+   inside a box that scrolls sideways can't: the offset would land mid-table. */
+.view-evaluations .sheet > .grid thead th { position: sticky; top: 66px; z-index: 5; cursor: grab; }
+.grid.ne thead th { padding: 8px 12px; }
 .grid thead tr th:first-child { border-top-left-radius: var(--r-lg); }
 .grid thead tr th:last-child { border-top-right-radius: var(--r-lg); }
 .grid .rn { position: static; }
@@ -384,3 +388,13 @@ button.st:hover::before { opacity: .9; }
 .st.done.t-grey .dot { background: var(--text3); border-color: var(--text3); }
 .st.t-grey .res { color: var(--text2); }
 .mini-line i.done.t-grey { --c: var(--text3); }
+/* Comparison grid: the letter row (A, B, C…) has no bottom rule under column A alone;
+   the full-width rule sits under the header row only. */
+.xl thead tr.xl-letters > th:nth-child(2) { box-shadow: inset -2px 0 0 var(--border); }
+.xl thead tr.xl-head > th { box-shadow: inset 0 -2px 0 var(--border-2); }
+.xl thead tr.xl-head > th:nth-child(2) { box-shadow: inset -2px 0 0 var(--border), inset 0 -2px 0 var(--border-2); }
+.xl thead tr.xl-letters > th.xl-corner { padding: 2px 4px; height: 22px; border-bottom: 1px solid var(--border); }
+.xl thead tr.xl-head > th.xl-rn { background: var(--surface-2); }
+/* The page scrolls, not the grid, so header cells keep only their left pinning; a
+   leftover top offset pushed the "#" cell 5px below the rest of its row. */
+.xl thead th, .xl thead .xl-rn, .xl thead .xl-corner { top: auto; }
