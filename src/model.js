@@ -125,9 +125,10 @@ export function buildRows({ materials, evaluations, events }) {
     return {
       id: e.id, raw: e, material: m,
       materialName: m.name, grade: e.grade,
-      candidate: t.candidate || e.candidate_name || e.candidate || null,
+      // The candidate is its manufacturer; PU's distributor is the supplier.
+      candidate: t.manufacturer || e.manufacturer || t.candidate || e.candidate_name || e.candidate || null,
       supplier: t.supplier || e.supplier || null,
-      manufacturer: t.manufacturer || e.manufacturer || null,
+      manufacturer: t.manufacturer || e.manufacturer || t.candidate || e.candidate_name || e.candidate || null,
       avl: t.avl_listed ?? e.avl_listed ?? null,
       // Set by hand, else from QA's AVL list (null while a close match waits for a yes/no).
       avlListed: stages.avl ?? e.avl_match?.listed ?? null,

@@ -185,7 +185,7 @@ function header(r) {
     </div>
     <header class="evh">
       <p class="eyebrow">${esc([r.materialName, r.grade].filter(Boolean).join(' · '))}${r.itemCode ? ` · item ${esc(r.itemCode)}` : ''}</p>
-      <div class="evh-title"><h1>${r.candidate ? esc(r.candidate) : 'Candidate not set'}</h1>${pill(r, 'big')}</div>
+      <div class="evh-title"><h1>${r.candidate ? esc(r.candidate) : 'Manufacturer not set'}</h1>${pill(r, 'big')}</div>
       <div class="evh-meta">
         ${r.manufacturer && r.manufacturer !== r.candidate ? `<span>${esc(r.manufacturer)}</span>` : ''}
         ${r.supplier ? `<span>via ${esc(r.supplier)}</span>` : ''}
@@ -252,7 +252,7 @@ function puPanel(r, doc) {
   </div>`
 }
 
-const FIELDS = [['candidate_name', 'Candidate', 'candidate'], ['manufacturer', 'Manufacturer', 'manufacturer'], ['supplier', 'Distributor', 'supplier'], ['item_code', 'Item code', 'item_code'], ['next_action', 'Next action', 'next_action']]
+const FIELDS = [['manufacturer', 'Manufacturer', 'manufacturer'], ['supplier', 'Supplier', 'supplier'], ['item_code', 'Item code', 'item_code'], ['next_action', 'Next action', 'next_action']]
 function factsPanel(r, f) {
   const ro = readOnly()
   if (ui.editing && !ro) {

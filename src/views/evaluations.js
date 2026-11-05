@@ -13,8 +13,8 @@ const sinceDays = r => r.since?.date ? daysBetween(r.since.date, todayIso()) : n
 // id, header, cell, sort value, filter value (null = no funnel), shown by default
 export const COLUMNS = [
   { id: 'material', label: 'Material', cell: r => `<div class="mat">${esc(r.materialName)}</div>${r.grade ? `<div class="sub2">${esc(r.grade)}</div>` : ''}`, sort: r => `${r.materialName} ${r.grade || ''}`, filter: r => r.materialName, on: true },
-  { id: 'candidate', label: 'Candidate', cell: r => r.candidate ? esc(r.candidate) : '<span class="nil">not set</span>', sort: r => r.candidate || '', filter: r => r.candidate || '(not set)', on: true },
-  { id: 'manufacturer', label: 'Manufacturer', cell: r => r.manufacturer || r.supplier ? `${esc(r.manufacturer || '')}${r.supplier && r.supplier !== r.manufacturer ? `<div class="sub2">via ${esc(r.supplier)}</div>` : ''}` : dash, sort: r => r.manufacturer || '', filter: r => r.manufacturer || '(not set)' },
+  { id: 'candidate', label: 'Manufacturer', cell: r => r.manufacturer ? esc(r.manufacturer) : '<span class="nil">not set</span>', sort: r => r.manufacturer || '', filter: r => r.manufacturer || '(not set)', on: true },
+  { id: 'supplier', label: 'Supplier', cell: r => r.supplier ? esc(r.supplier) : dash, sort: r => r.supplier || '', filter: r => r.supplier || '(not set)', on: true },
   { id: 'status', label: 'Status', cell: r => pill(r), sort: r => STATUS[r.status].order, filter: r => STATUS[r.status].label, on: true, cls: 'c-center' },
   { id: 'where', label: 'Where it is', cell: r => miniLine(r), sort: stationIdx, filter: r => r.stations[stationIdx(r)]?.label ?? '', on: true },
   { id: 'since', label: 'In status', cell: r => sinceDays(r) != null ? `<span class="days">${sinceDays(r)} d</span>` : dash, sort: r => sinceDays(r) ?? -1, cls: 'c-center' },
@@ -54,13 +54,26 @@ function baseRows() {
 }
 const inChips = r => !state.filter.chips.length || state.filter.chips.some(k => CHIPS.find(c => c[0] === k)[3].includes(r.status))
 
+// Row grouping: by material (how RD reads it) or by supplier (how PU does).
+const GROUPS = {
+  material: { key: r => r.materialName, head: (r, mine) => {
+    const prods = productNames(mine.flatMap(x => x.products))
+    return `<b>${esc(r.materialName)}</b><span>${mine.length} candidate${mine.length === 1 ? '' : 's'}${r.kind ? ` · ${r.kind === 'api' ? 'API' : 'Excipient'}` : ''}${prods.length ? ` · used in ${prods.length} product${prods.length === 1 ? '' : 's'}` : ''}</span>`
+  } },
+  supplier: { key: r => r.supplier || '\uffff', head: (r, mine) => {
+    const mats = new Set(mine.map(x => x.materialName)).size
+    return `<b>${r.supplier ? esc(r.supplier) : 'Supplier not set'}</b><span>${mine.length} candidate${mine.length === 1 ? '' : 's'} · ${mats} material${mats === 1 ? '' : 's'}</span>`
+  } },
+}
+
 export function visibleRows() {
   const rows = baseRows().filter(inChips)
   const s = state.prefs.sort
   const c = s && byId[s.col]
   const cmp = (a, b) => { const x = c.sort(a), y = c.sort(b); return typeof x === 'number' ? x - y : String(x).localeCompare(String(y)) }
   rows.sort(c ? (a, b) => (s.dir === 'desc' ? -cmp(a, b) : cmp(a, b)) : (a, b) => STATUS[a.status].order - STATUS[b.status].order || (b.lastActivity || '').localeCompare(a.lastActivity || ''))
-  if (state.prefs.groupBy === 'material') rows.sort((a, b) => a.materialName.localeCompare(b.materialName))
+  const g = GROUPS[state.prefs.groupBy]
+  if (g) rows.sort((a, b) => g.key(a).localeCompare(g.key(b)))
   return rows
 }
 
@@ -95,8 +108,9 @@ export function viewMenuItems() {
   const g = state.prefs.groupBy
   return [
     { head: 'Rows' },
-    { label: 'Per candidate', act: 'group-by', value: 'candidate', on: g !== 'material' },
+    { label: 'Per candidate', act: 'group-by', value: 'candidate', on: !GROUPS[g] },
     { label: 'By material', act: 'group-by', value: 'material', on: g === 'material', hint: 'Candidates under each material' },
+    { label: 'By supplier', act: 'group-by', value: 'supplier', on: g === 'supplier', hint: 'How PU sorts them' },
     { sep: true },
     { head: 'Columns' },
     ...columnOrder().map(id => ({ label: byId[id].label, act: 'col-toggle', value: id, on: isShown(id) })),
@@ -128,7 +142,7 @@ function toolbar() {
       <div class="chips5" role="group" aria-label="Status">
         ${CHIPS.map(([k, label, tone, statuses]) => `<button class="schip t-${tone}${f.chips.includes(k) ? ' on' : ''}" data-act="chip" data-value="${k}" aria-pressed="${f.chips.includes(k)}"><i></i>${label} <b>${base.filter(r => statuses.includes(r.status)).length}</b></button>`).join('')}
       </div>
-      <label class="search"><span class="search-ico">${icon('search', 16)}</span><input type="search" id="search-input" placeholder="Search material, candidate, item code" value="${esc(f.q)}" autocomplete="off"><span class="kbd" aria-hidden="true">/</span></label>
+      <label class="search"><span class="search-ico">${icon('search', 16)}</span><input type="search" id="search-input" placeholder="Search material, company, item code" value="${esc(f.q)}" autocomplete="off"><span class="kbd" aria-hidden="true">/</span></label>
       <div class="tb-right">
         <button class="btn surface" data-menu="filters">${icon('filter', 15)} Filters${nFilters ? ` <span class="badge">${nFilters}</span>` : ''} ${icon('chevDown', 14)}</button>
         <button class="btn surface" data-menu="view">${icon('columns', 15)} View ${icon('chevDown', 14)}</button>
@@ -152,14 +166,12 @@ function head(cols) {
 export function renderEvaluations() {
   const rows = visibleRows()
   const cols = visibleColumns()
-  const grouped = state.prefs.groupBy === 'material'
+  const g = GROUPS[state.prefs.groupBy]
   let body = '', last = null, n = 0
   rows.forEach((r, i) => {
-    if (grouped && r.material.id !== last) {
-      last = r.material.id
-      const mine = rows.filter(x => x.material.id === last)
-      const prods = productNames(mine.flatMap(x => x.products))
-      body += `<tr class="group"><td colspan="${cols.length + 1}"><b>${esc(r.materialName)}</b><span>${mine.length} candidate${mine.length === 1 ? '' : 's'}${r.kind ? ` · ${r.kind === 'api' ? 'API' : 'Excipient'}` : ''}${prods.length ? ` · used in ${prods.length} product${prods.length === 1 ? '' : 's'}` : ''}</span></td></tr>`
+    if (g && g.key(r) !== last) {
+      last = g.key(r)
+      body += `<tr class="group"><td colspan="${cols.length + 1}">${g.head(r, rows.filter(x => g.key(x) === last))}</td></tr>`
     }
     body += `<tr class="t-${STATUS[r.status].tone}${i === state.sel ? ' sel' : ''}" data-act="evaluation" data-id="${r.id}" data-i="${i}" tabindex="-1">
       <td class="rn">${++n}</td>${cols.map(c => `<td class="${c.cls || ''}">${c.cell(r)}</td>`).join('')}</tr>`

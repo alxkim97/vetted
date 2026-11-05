@@ -92,7 +92,7 @@ export function printEvaluation(r, doc, f = {}) {
       <div class="box"><h2>Timeline</h2><table><tbody>${r.events.filter(e => e.kind !== 'stage').slice(-12).reverse().map(e => `<tr><td>${fmtDate(e.event_date)}</td><td>${esc(e.kind.replace('_', ' '))}${e.party ? ` · ${esc(e.party)}` : ''}</td><td>${esc(e.what || e.note || '')}</td></tr>`).join('')}</tbody></table></div>
     </div><div>
       <div class="box"><h2>Facts</h2><dl>
-        ${[['Manufacturer', r.manufacturer], ['Distributor', r.supplier], ['Price', f.price ? `฿${f.price}/kg` : null], ['Reference', f.opLine?.slice(0, 160)], ['Used in', productNames(r.products).join(', ')], ['Next', r.nextAction || r.nextStep], ['Notes', r.raw.notes], ['File', r.fileName]].filter(([, v]) => v).map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}
+        ${[['Manufacturer', r.manufacturer], ['Supplier', r.supplier], ['Price', f.price ? `฿${f.price}/kg` : null], ['Reference', f.opLine?.slice(0, 160)], ['Used in', productNames(r.products).join(', ')], ['Next', r.nextAction || r.nextStep], ['Notes', r.raw.notes], ['File', r.fileName]].filter(([, v]) => v).map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join('')}
       </dl></div>
       ${r.openRequests.length ? `<div class="box"><h2>Open requests</h2>${r.openRequests.map(q => `<p>${esc(q.what || 'Documents')} · ${esc(q.party || 'PU')} · ${fmtDate(q.event_date)} (${q.days} d)</p>`).join('')}</div>` : ''}
     </div></div>
