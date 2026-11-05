@@ -9,13 +9,10 @@ export function applyTheme(mode) {
   })
 }
 
-// The stamp mark: an ink ring with a check, set a few degrees off-square
-// like a hand-pressed stamp. Same drawing as public/favicon.svg.
+// The stamp mark: a rubber stamp (handle, neck, inked base, the print under
+// it). Same drawing as public/favicon.svg.
+export const STAMP_PATH = 'M9 3h6v5l-1.5 3h6A1.5 1.5 0 0 1 21 12.5V16H3v-3.5A1.5 1.5 0 0 1 4.5 11h6L9 8z'
 export const stampMark = (size = 18) => `
-  <svg class="stamp-mark" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <g transform="rotate(-12 12 12)">
-      <circle cx="12" cy="12" r="9.2" stroke-width="2"/>
-      <circle cx="12" cy="12" r="6.6" stroke-width="1" stroke-dasharray="1.6 1.4" opacity=".7"/>
-      <path d="M8.6 12.3l2.3 2.3 4.6-5" stroke-width="2.2"/>
-    </g>
+  <svg class="stamp-mark" width="${size}" height="${size}" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="${STAMP_PATH}" fill="currentColor"/><rect x="4" y="18" width="16" height="2.5" rx="1" fill="currentColor"/>
   </svg>`

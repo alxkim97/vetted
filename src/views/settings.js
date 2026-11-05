@@ -1,5 +1,7 @@
 import { state } from '../store.js'
+import { fmtDate } from '../model.js'
 import { esc, icon } from '../ui.js'
+import { viewLink } from '../parts.js'
 
 const isDesktop = () => !!window.electronAPI?.isElectron
 
@@ -9,6 +11,20 @@ export function scanSummary(run) {
   if (run.ok === false) return `Last scan failed ${when}: ${run.error || 'unknown error'}`
   if (!run.finished_at) return `Scan started ${when}…`
   return `${when} · ${run.trigger} · ${run.materials} materials, ${run.evaluations} evaluations, ${run.events_added} new document folders`
+}
+
+// One secret link shows everything, read-only; an evaluation's link is the
+// same link plus its address. Revoking stops every copy.
+function shareBlock() {
+  if (state.shares === null) return '<p class="muted">Loading…</p>'
+  if (state.shares.error) return `<p class="muted">${esc(state.shares.error)}</p>`
+  const s = state.shares[0]
+  if (!s) return `<p class="muted">Managers open Vetted read-only from a link, no sign-in. They see everything (prices, suppliers, timeline, documents) but can't change anything.</p>
+    <div class="row-gap"><button class="btn primary small" data-act="share-create">${icon('link', 15)} Make the link</button></div>`
+  return `<p class="muted">Anyone with this link sees everything in Vetted, read-only. Each evaluation's Hand off menu copies a link straight to that evaluation.</p>
+    <div class="share-row"><code class="clip">${esc(viewLink())}</code><button class="btn soft small" data-act="share-copy">${icon('copy', 14)} Copy</button></div>
+    <p class="muted small">Made ${fmtDate(s.created_at.slice(0, 10))}.</p>
+    <div class="row-gap"><button class="btn ghost small danger-text" data-act="share-revoke" data-value="${esc(s.token)}">Turn it off and make a new one</button></div>`
 }
 
 export function renderSettings() {
@@ -21,8 +37,14 @@ export function renderSettings() {
         ${isDesktop() ? `
           <label class="field">RM evaluation folder
             <input id="root" value="${esc(state.prefs.root)}" placeholder="Default: Everything\\APm Drug Files\\General\\Raw Material Evaluation Document"></label>
+          <label class="check-line" style="margin-top:12px"><input type="checkbox" id="upload-files" ${state.prefs.uploadFiles ? 'checked' : ''}> Upload each candidate's latest Selection Form and CoA, so the web and view links can show them</label>
           <div class="row-gap" style="margin-top:12px"><button class="btn primary small" data-act="scan">${icon('sync', 15)} Re-scan now</button></div>`
           : `<p class="muted">Scans read the folder on the work PC, so they run from the desktop app or the daily scheduled task. This page shows the result of the last one.</p>`}
+      </section>
+
+      <section class="card">
+        <div class="card-head"><h2>${icon('eye', 18)} Manager view link</h2></div>
+        ${shareBlock()}
       </section>
 
       <section class="card">

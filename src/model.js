@@ -60,6 +60,7 @@ export const EVENT_KINDS = {
   message_sent:   { label: 'Message sent', icon: 'message' },
   verdict:        { label: 'Verdict', icon: 'check' },
   note:           { label: 'Note', icon: 'note' },
+  stage:          { label: 'Stage', icon: 'flag' },
 }
 
 export const todayIso = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10) // Bangkok
@@ -116,6 +117,10 @@ export function buildRows({ materials, evaluations, events }) {
     const closed = !!stages.outcome
     const messages = evs.filter(x => x.kind === 'message_sent')
     const dates = [e.rev_date, ...evs.map(x => x.event_date)].filter(Boolean).sort()
+    const openData = open.filter(x => x.topic !== 'form')
+    const sd = stageDates(stages, evs, { verdictDate, verdictExact: !!t.verdict_date, revDate: e.rev_date, firstDocs, last: dates[dates.length - 1] ?? null })
+    const stations = stationsOf(stages, sd, { hasFile: !!e.file_name, firstDocs, today })
+    const since = statusSince(status, sd, stations, { openData, firstDocs, revDate: e.rev_date })
     return {
       id: e.id, raw: e, material: m,
       materialName: m.name, grade: e.grade,
@@ -141,8 +146,114 @@ export function buildRows({ materials, evaluations, events }) {
       waitingDays: open.length ? Math.max(...open.map(x => daysBetween(x.event_date, today))) : null,
       lastMessage: messages[messages.length - 1] ?? null,
       lastActivity: dates[dates.length - 1] ?? null,
+      stageDates: sd, stations, since,
+      holder: holderOf(stages, openData, since, sd),
+      decisionDays: firstDocs && sd.outcome?.date >= firstDocs ? daysBetween(firstDocs, sd.outcome.date) : null,
     }
   })
+}
+
+// ── Stage dates ──────────────────────────────────────────────────────────
+// From v0.7 every stage change is a 'stage' timeline entry (what = stage key,
+// note = the new value). Values set before that, or never logged, get a date
+// estimated from the other entries, marked est.
+export function stageDates(stages, evs, b) {
+  const logged = k => {
+    const hit = evs.filter(x => x.kind === 'stage' && x.what === k && x.note === String(stages[k])).pop()
+    return hit ? { date: hit.event_date, est: !!hit.estimated } : null
+  }
+  const latest = (list, from) => list.filter(d => d && (!from || d >= from)).sort().pop()
+  const out = {}
+  for (const k of ['avl', ...STAGE_KEYS]) out[k] = stages[k] == null ? null : logged(k)
+  const coaDate = b.verdictDate || b.revDate
+  if (stages.coa != null && !out.coa && coaDate) out.coa = { date: coaDate, est: !b.verdictExact }
+  if (stages.avl != null && !out.avl && (out.coa || b.firstDocs)) out.avl = { date: out.coa?.date || b.firstDocs, est: true }
+  const closedReqs = evs.filter(x => x.kind === 'docs_requested' && x.closed_on && x.topic !== 'form').map(x => x.closed_on)
+  const received = evs.filter(x => x.kind === 'docs_received').map(x => x.event_date)
+  if (stages.docs != null && !out.docs) {
+    const d = latest(closedReqs, out.coa?.date) || latest(received, out.coa?.date) || b.revDate || out.coa?.date
+    if (d) out.docs = { date: d, est: true }
+  }
+  if (stages.qc != null && !out.qc) {
+    const d = latest(received, out.docs?.date) || out.docs?.date || b.last
+    if (d) out.qc = { date: d, est: true }
+  }
+  if (stages.outcome != null && !out.outcome && b.last) out.outcome = { date: b.last, est: true }
+  return out
+}
+
+// ── The line: AVL → CoA → Docs → QC sample → Decision ─────────────────────
+// Station state: done (solid track behind it), now (the train is here),
+// ahead (dashed), skipped (passed without a value: AVL never checked, or the
+// evaluation closed early).
+export const STATIONS = [['avl', 'AVL'], ['coa', 'CoA'], ['docs', 'Docs'], ['qc', 'QC sample'], ['decision', 'Decision']]
+const RESULT_WORD = {
+  avl: { true: ['Listed', 'green'], false: ['Not listed', 'ink'] },
+  coa: { pass: ['Pass', 'green'], gap: ['Missing', 'amber'], fail: ['Fail', 'red'] },
+  docs: { pass: ['Pass', 'green'], gap: ['Missing', 'amber'], fail: ['Fail', 'red'] },
+  qc: { approved: ['Approved', 'green'], not_approved: ['Not approved', 'red'] },
+  decision: { approved: ['Approved', 'green'], not_approved: ['Not approved', 'slate'], closed: ['Closed', 'grey'] },
+}
+const DONE = { coa: v => v === 'pass', docs: v => v === 'pass', qc: v => v === 'approved', decision: v => v != null }
+
+export function stationsOf(stages, sd, { hasFile, firstDocs, today = todayIso() }) {
+  const val = k => k === 'decision' ? stages.outcome : stages[k]
+  const dateOf = k => k === 'decision' ? sd.outcome : sd[k]
+  const closed = stages.outcome != null
+  // The train stops at the first of CoA / Docs / QC / Decision that isn't done.
+  const nowIdx = closed ? 4 : Math.max(1, STATIONS.findIndex(([k]) => k !== 'avl' && !DONE[k](val(k))))
+  let arrived = firstDocs
+  return STATIONS.map(([k, label], i) => {
+    const v = val(k)
+    const [result, tone] = v != null ? RESULT_WORD[k][String(v)] ?? ['', 'ink']
+      : k === 'coa' && i === nowIdx && !hasFile ? ['No file yet', 'ink'] : ['', 'ink']
+    const d = dateOf(k)
+    const state = i === nowIdx ? 'now' : i > nowIdx ? 'ahead' : v != null ? 'done' : 'skipped'
+    const st = { key: k, label, state, result, tone, date: d?.date ?? null, est: !!d?.est, from: arrived }
+    if (state === 'done' && d?.date) {
+      st.days = arrived && d.date >= arrived ? daysBetween(arrived, d.date) : null
+      arrived = d.date
+    }
+    if (state === 'now') {
+      // Closed: the decision date. Open: counting since the train got here.
+      st.since = closed ? d?.date ?? null : [arrived, d?.date].filter(Boolean).sort().pop() ?? null
+      st.days = !closed && st.since ? daysBetween(st.since, today) : null
+    }
+    return st
+  })
+}
+
+// When the current status began: the oldest open request for In progress, the
+// outcome once closed, otherwise when the train reached its station.
+export function statusSince(status, sd, stations, { openData, firstDocs, revDate }) {
+  if (status === 'in_progress') {
+    const d = openData.map(x => x.event_date).sort()[0]
+    return d ? { date: d, est: false } : null
+  }
+  if (['approved', 'not_approved', 'closed'].includes(status)) return sd.outcome
+  if (status === 'awaiting') return firstDocs ? { date: firstDocs, est: false } : null
+  if (status === 'untagged' || status === 'unreadable') return revDate ? { date: revDate, est: false } : null
+  const now = stations.find(s => s.state === 'now')
+  if (!now?.since) return null
+  const from = stations.find(s => s.date === now.since)
+  return { date: now.since, est: from ? from.est : false }
+}
+
+// "In progress 12 d · since 24-10-26", for a status pill's hover.
+export function sinceText(r) {
+  const label = STATUS[r.status].label
+  if (!r.since?.date) return label
+  return `${label} ${daysBetween(r.since.date, todayIso())} d · since ${fmtDate(r.since.date)}${r.since.est ? ' (estimated)' : ''}`
+}
+
+// Who has the evaluation now: whoever an open data request went to, else RD.
+function holderOf(stages, openData, since, sd) {
+  if (stages.outcome) return { who: 'Closed', closed: true, since: sd.outcome?.date ?? null }
+  if (openData.length) {
+    const first = openData.slice().sort((a, b) => a.event_date.localeCompare(b.event_date))[0]
+    return { who: first.party || 'PU', since: first.event_date, what: openData.map(x => x.what).filter(Boolean) }
+  }
+  return { who: 'RD', you: true, since: since?.date ?? null }
 }
 
 // Wait thresholds for the "waiting" chip: under 2 weeks fine, 2–4 weeks amber, beyond red.

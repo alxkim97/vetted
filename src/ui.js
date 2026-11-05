@@ -39,7 +39,50 @@ const PATHS = {
   file: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
   image: '<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-5-5L5 21"/>',
   sparkle: '<path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M5.6 18.4l2.8-2.8M15.6 8.4l2.8-2.8"/>',
+  flag: '<path d="M5 22V4M5 4h12l-2.5 4L17 12H5"/>',
+  filter: '<path d="M3 5h18l-7 8v6l-4 2v-8z"/>',
+  sortDown: '<path d="M12 5v14M6 13l6 6 6-6"/>',
+  sortUp: '<path d="M12 19V5M6 11l6-6 6 6"/>',
+  copy: '<rect x="8" y="8" width="13" height="13" rx="3"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  train: '<rect x="5" y="3" width="14" height="14" rx="4"/><path d="M5 11h14M9 21l-2-3M15 21l2-3"/>',
+  columns: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',
+  eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+  chevDown: '<path d="m6 9 6 6 6-6"/>',
+  undo: '<path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/>',
+  print: '<path d="M6 9V3h12v6M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/>',
 }
+
+export async function copyText(text, done = 'Copied') {
+  try { await navigator.clipboard.writeText(text); toast(done) } catch { toast('Copy failed; select the text and copy it by hand') }
+}
+
+// Dropdown under a button: [{ label, act?, value?, on?, sep?, html?, hint? }].
+// Items carry data-act/data-value, so main.js's click handler runs them; the
+// menu closes on any click outside it, Escape, or after an item runs.
+let menuEl = null
+export function closeMenu() { if (!menuEl) return false; menuEl.remove(); menuEl = null; return true }
+export function openMenu(anchor, items, { align = 'left', html } = {}) {
+  const same = menuEl?.dataset.for === anchor.dataset.menu
+  closeMenu()
+  if (same) return
+  menuEl = document.createElement('div')
+  menuEl.className = 'menu'
+  menuEl.dataset.for = anchor.dataset.menu || ''
+  menuEl.setAttribute('role', 'menu')
+  menuEl.innerHTML = html ?? items.map(it => it.sep ? '<hr>' : it.head ? `<p class="menu-head">${esc(it.head)}</p>`
+    : `<button type="button" role="menuitem" class="menu-item${it.on ? ' on' : ''}" ${it.act ? `data-act="${it.act}"` : ''} ${it.value != null ? `data-value="${esc(it.value)}"` : ''} ${it.id ? `data-id="${esc(it.id)}"` : ''}>
+        <span class="menu-check">${it.on ? icon('check', 14) : ''}</span><span>${esc(it.label)}${it.hint ? `<small>${esc(it.hint)}</small>` : ''}</span></button>`).join('')
+  document.body.append(menuEl)
+  const r = anchor.getBoundingClientRect()
+  const w = menuEl.offsetWidth
+  const left = align === 'right' ? r.right - w : r.left
+  menuEl.style.left = `${Math.max(8, Math.min(left, innerWidth - w - 8)) + scrollX}px`
+  menuEl.style.top = `${r.bottom + 6 + scrollY}px`
+  menuEl.querySelector('input, .menu-item')?.focus()
+  return menuEl
+}
+document.addEventListener('mousedown', e => { if (menuEl && !menuEl.contains(e.target) && !e.target.closest('[data-menu]')) closeMenu() })
 
 export const icon = (name, size = 20) =>
   `<svg class="ico" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PATHS[name] || ''}</svg>`

@@ -1,10 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <rect width="512" height="512" rx="120" fill="#ffd60a"/>
-  <g transform="translate(256 256) scale(15.5) translate(-12 -12)" fill="none" stroke="#1c1c1e" stroke-linecap="round" stroke-linejoin="round">
-    <g transform="rotate(-12 12 12)">
-      <circle cx="12" cy="12" r="9.2" stroke-width="2"/>
-      <circle cx="12" cy="12" r="6.6" stroke-width="1" stroke-dasharray="1.6 1.4" opacity=".7"/>
-      <path d="M8.6 12.3l2.3 2.3 4.6-5" stroke-width="2.2"/>
-    </g>
+  <g transform="translate(256 256) scale(15.5) translate(-12 -12)" fill="#1c1c1e">
+    <path d="M9 3h6v5l-1.5 3h6A1.5 1.5 0 0 1 21 12.5V16H3v-3.5A1.5 1.5 0 0 1 4.5 11h6L9 8z"/>
+    <rect x="4" y="18" width="16" height="2.5" rx="1"/>
   </g>
 </svg>

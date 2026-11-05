@@ -12,7 +12,7 @@ from one Vite codebase, the same setup as WorkLog, and stored in WorkLog's Supab
 | `npm run demo` | The app on `src/demo-scan.json` (real scan plus a few marked examples), no Supabase |
 | `npm run demo:data` | Rebuild `src/demo-scan.json` from the folder |
 | `npm test` | Parser tests |
-| `npm run scan:dry` | Print what a scan finds, write nothing |
+| `npm run scan:dry` | Print what a scan finds, write nothing (`-- --files`: what an upload would send, and its size) |
 | `npm run scan` | Scan the folder and push to Supabase (needs `.env.local`) |
 | `npm run log -- <action> …` | Log a message / request / receipt / verdict (see `scripts/rm-log.js`) |
 | `npm run electron:dev` | Desktop app against the dev server |
@@ -37,8 +37,20 @@ Raw Material Evaluation Document\ ──(lib/scanner.js: desktop Re-scan, daily 
   `statusOf` turns them into one status: Approved / Not approved / Closed once there's an outcome,
   Fail for a failed stage, In progress while a data request is open (a `topic: 'form'` paperwork
   request doesn't count), otherwise Missing (nothing requested yet).
-- `src/`: the app. `model.js` derives status and durations, `views/` holds Register, Waiting,
-  Materials and Settings, and `detail.js` is the evaluation sheet with its stages and timeline.
+- `src/`: the app (v0.7: two places plus one page per evaluation). `model.js` derives status,
+  stage dates (from 'stage' timeline entries, else estimated and marked), the station line
+  (AVL, CoA, Docs, QC sample, Decision) and who has it now. `views/overview.js` and
+  `views/evaluations.js` are the two places; `views/evaluation.js` is the evaluation page with
+  its tabs and all editing. `edits.js` makes every change and records it for undo/redo
+  (`undo.js`). `handoff.js` writes the chat prompt and the Thai PU message; `print.js` the
+  status list and one-page PDFs.
+- Addresses: `#/`, `#/evaluations`, `#/e/<first 8 of the id>[/tab]`, `#/settings`. A manager's
+  view link is the same behind `#/v/<token>/`, read through `api/view.js` (Vercel) with the
+  service key on the server; the browser gets no key that can write.
+- Documents: the scan lists every file in the Document folders (`rm_files`); with upload on
+  (`npm run scan -- --upload`, or the desktop Settings box) it sends each evaluation's newest
+  Selection Form + CoA to the private `rm-files` bucket. The desktop app shows any of them
+  in-app through `vetted-file://` (RM folder only).
 - Evidence images (LINE screenshots, emails, form scans) attach to timeline entries: rows in
   `rm_evidence`, files in the private `rm-evidence` Storage bucket (members only, signed links).
   Never commit them; local copies live in the git-ignored `.secrets\evidence\`.

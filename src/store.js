@@ -1,4 +1,4 @@
-import { buildRows, STATUS, parseProduct, PROJECTS } from './model.js'
+import { buildRows, parseProduct, PROJECTS } from './model.js'
 
 const PREFS_KEY = 'vt_prefs'
 const CACHE_KEY = 'vt_cache'
@@ -9,21 +9,34 @@ export const state = {
   member: null,
   loaded: false,
   scanning: false,
-  view: 'home',
+  // overview | evaluations | evaluation | settings, from the address (#/…)
+  view: 'overview',
+  tab: 'summary',
   homeDay: null,
   data: { materials: [], evaluations: [], events: [], lastRun: null },
   rows: [],
-  prefs: load(PREFS_KEY, { theme: 'system', root: '', sort: 'activity', showOld: false, moreCols: false, issuesOnly: false }),
-  filter: { group: 'all', sub: null, kind: 'all', company: '', product: '', project: '', q: '' },
+  prefs: load(PREFS_KEY, {
+    theme: 'system', root: '', issuesOnly: false,
+    // Evaluations table: column order, hidden columns, sort, per-column filters
+    cols: null, hidden: null, sort: null, colFilters: {}, groupBy: 'candidate',
+    turn: 'verdict', uploadFiles: true,
+  }),
+  // Status chips (none on = every row) and the filters behind the Filters button.
+  filter: { chips: [], q: '', project: '', product: '', kind: '', company: '' },
   projectOf: {}, // product name → rm_products.project
-  // Full evaluation page: which one, where Back goes, loaded files by
-  // evaluation id, the Thai → English glossary, sections opened or closed by hand.
+  sel: -1,       // keyboard-selected row on Evaluations
+  showNotEval: false,
+  // Evaluation page: which one, loaded comparison files by evaluation id,
+  // the Thai → English glossary, sections opened or closed by hand.
   evalId: null,
-  backView: 'register',
   docs: {},
   glossary: null,
   secOpen: new Map(),
+  // View-only share link: the token from #/v/<token>/…, no editing anywhere.
+  viewToken: null,
+  shares: null,
 }
+export const readOnly = () => !!state.viewToken
 
 export function savePrefs(patch) {
   Object.assign(state.prefs, patch)
@@ -37,62 +50,42 @@ export function setData(data) {
   state.loaded = true
 }
 const inProject = (names, project) => !project || names.some(n => state.projectOf[n] === project)
-export const materialInProject = m => inProject((m.products || []).map(s => parseProduct(s).name), state.filter.project)
 export const rebuild = () => { state.rows = buildRows(state.data) }
 
-export function cacheData() { try { localStorage.setItem(CACHE_KEY, JSON.stringify(state.data)) } catch {} }
+export function cacheData() { if (readOnly()) return; try { localStorage.setItem(CACHE_KEY, JSON.stringify(state.data)) } catch {} }
 export function restoreCache() {
   try { const d = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); if (d?.evaluations) { setData(d); return true } } catch {}
   return false
 }
 export const clearCache = () => { try { localStorage.removeItem(CACHE_KEY) } catch {} }
 
-// Status groups behind the four tiles. "Old" = verdict only in a count table.
-// Needs action = Alex's move; In progress = waiting on someone else.
-export const GROUPS = {
-  action: ['missing', 'fail', 'awaiting', 'untagged'],
-  progress: ['in_progress'],
-  closed: ['approved', 'not_approved', 'closed'],
-}
-const isClosed = r => GROUPS.closed.includes(r.status)
-// Closed and old-format rows stay out of the way unless asked for.
-export const inBase = r => state.prefs.showOld || (!isClosed(r) && r.status !== 'unreadable')
+// The five status chips use the RM Evaluation Status List's words. Missing
+// gathers everything that is Alex's move (Fail and "No file yet" too); the
+// row's own pill still says which.
+export const CHIPS = [
+  ['missing', 'Missing', 'amber', ['missing', 'fail', 'awaiting', 'untagged']],
+  ['in_progress', 'In progress', 'blue', ['in_progress']],
+  ['approved', 'Approved', 'green', ['approved']],
+  ['not_approved', 'Not approved', 'slate', ['not_approved']],
+  ['closed', 'Closed', 'grey', ['closed']],
+]
+export const YOUR_MOVE = CHIPS[0][3]
+export const CLOSED = ['approved', 'not_approved', 'closed']
 
-export function groupOf(r, group) {
-  if (group === 'closed') return isClosed(r)
-  if (!inBase(r)) return false
-  return group === 'all' || GROUPS[group].includes(r.status)
-}
-
-// Toolbar filters (API/excipient, company, project, product). The tiles count within these too.
+// Project, product, type and company: the filters behind the Filters button.
 export function inToolbar(r) {
   const { kind, company, product, project } = state.filter
-  return (kind === 'all' || r.kind === kind || (kind === 'unset' && !r.kind)) &&
+  return (!kind || r.kind === kind || (kind === 'unset' && !r.kind)) &&
     (!company || r.manufacturer === company || r.supplier === company) &&
     inProject(r.products.map(p => p.name), project) &&
     (!product || r.products.some(p => p.name === product))
 }
+export const activeFilters = () => ['project', 'product', 'kind', 'company'].filter(k => state.filter[k])
 
-// Rows after the tiles, toolbar filters and search.
-export function filteredRows() {
-  const { group, sub, q } = state.filter
+export const matches = (r, q) => {
   const needle = q.trim().toLowerCase()
-  const rows = state.rows.filter(r =>
-    (needle ? true : groupOf(r, group)) &&
-    (!sub || r.status === sub) &&
-    inToolbar(r) &&
-    (!needle || [r.materialName, r.grade, r.candidate, r.manufacturer, r.supplier, r.itemCode, r.fileName, ...r.products.map(p => p.name)].some(v => String(v ?? '').toLowerCase().includes(needle))))
-  return sortRows(rows)
-}
-
-export function sortRows(rows) {
-  const by = state.prefs.sort
-  const c = rows.slice()
-  if (by === 'material') c.sort((a, b) => (a.materialName + (a.grade || '') + (a.candidate || '')).localeCompare(b.materialName + (b.grade || '') + (b.candidate || '')))
-  else if (by === 'status') c.sort((a, b) => STATUS[a.status].order - STATUS[b.status].order || (b.lastActivity || '').localeCompare(a.lastActivity || ''))
-  else if (by === 'waiting') c.sort((a, b) => (b.waitingDays ?? -1) - (a.waitingDays ?? -1) || (b.ageDays ?? -1) - (a.ageDays ?? -1))
-  else c.sort((a, b) => (b.lastActivity || '').localeCompare(a.lastActivity || ''))
-  return c
+  return !needle || [r.materialName, r.grade, r.candidate, r.manufacturer, r.supplier, r.itemCode, r.fileName, ...r.products.map(p => p.name)]
+    .some(v => String(v ?? '').toLowerCase().includes(needle))
 }
 
 export const companies = () => [...new Set(state.rows.flatMap(r => [r.manufacturer, r.supplier]).filter(Boolean))].sort()
@@ -103,5 +96,4 @@ export function productGroups() {
   const groups = [...Object.keys(PROJECTS), ''].map(k => [k, products().filter(n => (state.projectOf[n] || '') === k)])
   return groups.filter(([k, names]) => names.length && (!project || k === project))
 }
-// The project segmented control only shows once rm_products has rows.
 export const hasProjects = () => (state.data.products || []).length > 0

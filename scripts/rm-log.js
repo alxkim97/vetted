@@ -117,8 +117,16 @@ if (action === 'set') {
 }
 if (Object.keys(patch).length) {
   if (!ev) fail(`${mat.folder} has no evaluation row to update — run a scan first`)
+  const old = must(await supa.from('rm_evaluations').select('coa,docs,qc,outcome,avl_listed').eq('id', ev.id).single())
   must(await supa.from('rm_evaluations').update(patch).eq('id', ev.id))
   console.log(`Updated ${label(ev)}: ${Object.keys(patch).join(', ')}`)
+  // Each changed stage is also a dated stage entry (v0.7), so Vetted knows since when.
+  const stages = [...STAGE_KEYS, 'avl_listed'].filter(k => k in patch && String(patch[k]) !== String(old[k]))
+    .map(k => ({ material_id: mat.id, evaluation_id: ev.id, kind: 'stage', event_date: date, what: k === 'avl_listed' ? 'avl' : k, note: patch[k] == null ? null : String(patch[k]), source: 'chat' }))
+  if (stages.length) {
+    const { error } = await supa.from('rm_events').insert(stages)
+    if (error) console.log(`(Stage dates not logged: ${error.message}. Run the v0.7.0 SQL.)`)
+  }
 }
 if (action === 'set') process.exit(0)
 

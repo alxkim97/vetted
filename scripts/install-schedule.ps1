@@ -5,7 +5,7 @@ param([string]$Time = "08:30")
 
 $dir = Split-Path -Parent $PSScriptRoot
 $node = (Get-Command node -ErrorAction Stop).Source
-$action = New-ScheduledTaskAction -Execute $node -Argument "scripts\scan.js --trigger schedule" -WorkingDirectory $dir
+$action = New-ScheduledTaskAction -Execute $node -Argument "scripts\scan.js --trigger schedule --upload" -WorkingDirectory $dir
 $trigger = New-ScheduledTaskTrigger -Daily -At $Time
 # StartWhenAvailable: if the PC was off at $Time, run as soon as it's back on.
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Minutes 10)

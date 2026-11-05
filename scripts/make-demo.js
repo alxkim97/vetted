@@ -50,6 +50,9 @@ if (more[1]) { Object.assign(more[1], { coa: 'pass', docs: 'pass', avl_listed: f
 
 // The comparison files themselves, for the full evaluation page.
 const docs = Object.fromEntries(scan.evaluations.filter(e => e.body).map(e => [ev[e.folder].id, e.body]))
-const out = { materials, evaluations, events, evidence, docs, lastRun: { trigger: 'demo', started_at: now, finished_at: now, ok: true, materials: materials.length, evaluations: evaluations.length, events_added: scan.events.length } }
+// The documents in each candidate's Document folders (listed, not uploaded).
+const files = scan.files.map(f => ({ id: randomUUID(), rel: f.rel, name: f.name, doc_date: f.doc_date, size: f.size, mtime: f.mtime, path: null,
+  material_id: mat[f.material_folder].id, evaluation_id: f.eval_folder ? ev[f.eval_folder]?.id ?? null : null }))
+const out = { materials, evaluations, events, evidence, files, docs, lastRun: { trigger: 'demo', started_at: now, finished_at: now, ok: true, materials: materials.length, evaluations: evaluations.length, events_added: scan.events.length } }
 writeFileSync(join(ROOT, 'src', 'demo-scan.json'), JSON.stringify(out, null, 1))
 console.log(`src/demo-scan.json: ${materials.length} materials, ${evaluations.length} evaluations, ${events.length} events`)

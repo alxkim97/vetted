@@ -175,6 +175,54 @@ drop policy if exists "rm-evidence members" on storage.objects;
 create policy "rm-evidence members" on storage.objects for all to authenticated
   using (bucket_id = 'rm-evidence' and is_worklog_member())
   with check (bucket_id = 'rm-evidence' and is_worklog_member());
+
+-- ── Stage dates, manager view link, documents (v0.7.0) ─────────────────
+-- Every stage change becomes a dated timeline entry (kind 'stage': what =
+-- avl/coa/docs/qc/outcome, note = the new value), so Vetted knows how long
+-- each evaluation has been in its status and at each station.
+alter table rm_events drop constraint if exists rm_events_kind_check;
+alter table rm_events add constraint rm_events_kind_check
+  check (kind in ('docs_received', 'docs_requested', 'message_sent', 'verdict', 'note', 'stage'));
+alter table rm_events add column if not exists estimated boolean not null default false;
+
+-- The manager's view-only link. Only members can see or make one; the view
+-- itself is read on the server (api/view.js) with the service key.
+create table if not exists rm_shares (
+  token      text primary key,
+  label      text,
+  created_by uuid default auth.uid(),
+  created_at timestamptz not null default now(),
+  revoked_at timestamptz
+);
+alter table rm_shares enable row level security;
+drop policy if exists "members" on rm_shares;
+create policy "members" on rm_shares for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
+
+-- Every file in the Document\YYMMDD\ folders; path is set once the scan has
+-- uploaded it (each candidate's newest Selection Form + CoA) to rm-files.
+create table if not exists rm_files (
+  id            uuid primary key default gen_random_uuid(),
+  material_id   uuid not null references rm_materials(id) on delete cascade,
+  evaluation_id uuid references rm_evaluations(id) on delete set null,
+  rel           text not null unique,   -- path inside the RM folder
+  name          text not null,
+  doc_date      date,
+  size          bigint,
+  mtime         timestamptz,
+  path          text,                   -- object path in the rm-files bucket
+  uploaded_at   timestamptz,
+  scan_seen_at  timestamptz
+);
+create index if not exists rm_files_eval_idx on rm_files (evaluation_id);
+alter table rm_files enable row level security;
+drop policy if exists "members" on rm_files;
+create policy "members" on rm_files for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
+
+insert into storage.buckets (id, name, public) values ('rm-files', 'rm-files', false) on conflict (id) do nothing;
+drop policy if exists "rm-files members" on storage.objects;
+create policy "rm-files members" on storage.objects for all to authenticated
+  using (bucket_id = 'rm-files' and is_worklog_member())
+  with check (bucket_id = 'rm-files' and is_worklog_member());
 ```
 
 ## `.env.local` (scheduled scan and `rm-log`)
@@ -189,3 +237,10 @@ SUPABASE_SERVICE_ROLE_KEY=<Project Settings → API → service_role>
 
 Same key WorkLog's Vercel sync already uses. It stays on this PC; it's never
 in the app bundle.
+
+## Manager view link (v0.7)
+
+The link reads through `api/view.js` on Vercel, which needs two environment
+variables in the **vetted** Vercel project (Settings → Environment Variables,
+Production): `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, the same values as
+`.env.local`. Then make the link in the app: Settings → Manager view link.

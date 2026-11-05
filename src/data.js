@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { SUPABASE_URL, SUPABASE_ANON_KEY, isConfigured } from './config.js'
+import { todayIso } from './model.js'
 
 export const supa = isConfigured() ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null
 
@@ -30,7 +31,7 @@ async function readAll(build) {
 
 // ── Load ──
 export async function fetchAll() {
-  const [materials, evaluations, events, runs, products, evidence] = await Promise.all([
+  const [materials, evaluations, events, runs, products, evidence, files] = await Promise.all([
     readAll(() => supa.from('rm_materials').select('*').is('removed_at', null).order('folder')),
     readAll(() => supa.from('rm_evaluations').select('*').is('removed_at', null).order('folder')),
     readAll(() => supa.from('rm_events').select('*').order('event_date').order('created_at')),
@@ -39,8 +40,10 @@ export async function fetchAll() {
     readAll(() => supa.from('rm_products').select('*').order('name')).catch(() => []),
     // request evidence images; empty until the v0.6.0 SQL has been run
     readAll(() => supa.from('rm_evidence').select('*').order('created_at')).catch(() => []),
+    // documents in each candidate's Document folders; empty until the v0.7.0 SQL
+    readAll(() => supa.from('rm_files').select('*').order('doc_date')).catch(() => []),
   ])
-  return { materials, evaluations, events, products, evidence, lastRun: runs[0] ?? null }
+  return { materials, evaluations, events, products, evidence, files, lastRun: runs[0] ?? null }
 }
 
 // ── Writes (app-owned columns only) ──
@@ -64,13 +67,24 @@ export const updateMaterial = async (id, patch) =>
 export const addEvent = async ev =>
   must(await supa.from('rm_events').insert({ ...pick(ev, ['material_id', 'evaluation_id', 'kind', 'event_date', 'what', 'party', 'note', ...(ev.topic ? ['topic'] : [])]), source: 'app' }).select('*').single())
 
+// A stage change as a dated timeline entry (v0.7): what = stage key, note = new value.
+export const addStageEvent = async (r, key, value) =>
+  must(await supa.from('rm_events').insert({ material_id: r.material.id, evaluation_id: r.id, kind: 'stage', event_date: todayIso(), what: key, note: value == null ? null : String(value), source: 'app' }).select('*').single())
+
+// Undo puts back exactly what was deleted, same ids.
+export const restoreEvent = async row => must(await supa.from('rm_events').insert(row).select('*').single())
+export const restoreEvidence = async rows => rows.length ? must(await supa.from('rm_evidence').insert(rows).select('*')) : []
+export const removeEvidenceRows = async ids => { if (ids.length) must(await supa.from('rm_evidence').delete().in('id', ids)) }
+
 export const updateEvent = async (id, patch) =>
   must(await supa.from('rm_events').update(pick(patch, ['event_date', 'what', 'party', 'note', 'closed_on'])).eq('id', id).select('*').single())
 
-export async function deleteEvent(id, evidence = []) {
-  if (evidence.length) await supa.storage.from(BUCKET).remove(evidence.map(x => x.path))
+// Image files stay in the bucket until the delete can no longer be undone
+// (see undo.js purge); only the rows go now.
+export async function deleteEvent(id) {
   must(await supa.from('rm_events').delete().eq('id', id).neq('source', 'scan'))
 }
+export const purgeFiles = async paths => { if (paths.length) await supa.storage.from(BUCKET).remove(paths) }
 
 // ── Request evidence images (private bucket, members only) ──
 const BUCKET = 'rm-evidence'
@@ -81,18 +95,50 @@ export async function addEvidence(ev, file) {
   return must(await supa.from('rm_evidence').insert({ event_id: ev.id, path, file_name: file.name || null }).select('*').single())
 }
 export async function deleteEvidence(row) {
-  await supa.storage.from(BUCKET).remove([row.path])
   must(await supa.from('rm_evidence').delete().eq('id', row.id))
 }
-// Short-lived links for the thumbnails; { path: url }.
+// Short-lived links for the thumbnails; { path: url }. A view link gets them
+// with its data instead (setViewUrls).
+let viewUrls = null
+export const setViewUrls = map => { viewUrls = map }
 export async function evidenceUrls(paths) {
   if (!paths.length) return {}
+  if (viewUrls) return Object.fromEntries(paths.filter(p => viewUrls[p]).map(p => [p, viewUrls[p]]))
   const data = must(await supa.storage.from(BUCKET).createSignedUrls(paths, 3600))
   return Object.fromEntries(data.filter(x => x.signedUrl).map(x => [x.path, x.signedUrl]))
 }
 
+// ── Stored documents (Selection Form + CoA scans uploaded by the scan) ──
+export async function fileUrl(path) {
+  if (viewUrls) return viewUrls[`files/${path}`] ?? null
+  return must(await supa.storage.from('rm-files').createSignedUrl(path, 3600)).signedUrl
+}
+
+// ── Manager view link ──
+export const fetchShares = async () => must(await supa.from('rm_shares').select('*').is('revoked_at', null).order('created_at'))
+export async function createShare() {
+  const bytes = crypto.getRandomValues(new Uint8Array(18))
+  const token = btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+  return must(await supa.from('rm_shares').insert({ token, label: 'Managers' }).select('*').single())
+}
+export const revokeShare = async token => must(await supa.from('rm_shares').update({ revoked_at: new Date().toISOString() }).eq('token', token))
+
+// The view link reads through the server (api/view.js), never with the anon key.
+async function viewGet(token, extra = '') {
+  const res = await fetch(`/api/view?t=${encodeURIComponent(token)}${extra}`)
+  if (res.status === 404 || res.status === 403) throw Object.assign(new Error('This view link has been turned off. Ask Alex for a new one.'), { revoked: true })
+  if (!res.ok) throw new Error(`Couldn't load (${res.status})`)
+  return res.json()
+}
+export async function fetchView(token) {
+  const d = await viewGet(token)
+  setViewUrls(d.urls || {})
+  return d
+}
+export const fetchViewDoc = (token, id) => viewGet(token, `&doc=${encodeURIComponent(id)}`)
+
 // Desktop only: scan the folder in the Electron main process as this user.
-export async function runScan(root) {
+export async function runScan(root, upload = false) {
   const session = await getSession()
-  return window.electronAPI.scan({ url: SUPABASE_URL, key: SUPABASE_ANON_KEY, token: session.access_token, root })
+  return window.electronAPI.scan({ url: SUPABASE_URL, key: SUPABASE_ANON_KEY, token: session.access_token, root, upload })
 }

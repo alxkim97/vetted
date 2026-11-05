@@ -1,6 +1,8 @@
 // Scans the RM evaluation folder and pushes it to Supabase.
-// Usage: node scripts/scan.js [--dry] [--trigger schedule] [--root "<folder>"]
-//   --dry   print what was found, write nothing
+// Usage: node scripts/scan.js [--dry] [--files] [--upload] [--trigger schedule] [--root "<folder>"]
+//   --dry     print what was found, write nothing
+//   --files   with --dry: list the Selection Form + CoA scans an upload would send, and their size
+//   --upload  send each evaluation's newest Selection Form + CoA to the rm-files bucket
 import { scanFolder, DEFAULT_ROOT } from '../lib/scanner.js'
 import { pushScan } from '../lib/sync.js'
 
@@ -20,8 +22,8 @@ if (process.argv.includes('--dry')) {
 const { serviceClient } = await import('./env.js')
 const { supa } = serviceClient()
 try {
-  const r = await pushScan(supa, scan, arg('--trigger') || 'cli')
-  console.log(`Scanned ${r.materials} materials · ${r.evaluations} evaluations · ${r.events_added} new document folders`)
+  const r = await pushScan(supa, scan, arg('--trigger') || 'cli', { upload: process.argv.includes('--upload') })
+  console.log(`Scanned ${r.materials} materials · ${r.evaluations} evaluations · ${r.events_added} new document folders${r.uploaded ? ` · ${r.uploaded} files uploaded` : ''}`)
 } catch (e) {
   console.error('Scan failed:', e.message || e)
   process.exit(1)

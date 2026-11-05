@@ -7,4 +7,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Scans the folder in the main process (Node fs) and pushes with the signed-in user's token.
   scan: opts => ipcRenderer.invoke('scan:run', opts),
   openPath: rel => ipcRenderer.invoke('file:open', rel),
+  // PDF from HTML, saved where Alex picks (default: the RM folder)
+  savePdf: opts => ipcRenderer.invoke('pdf:save', opts),
 })

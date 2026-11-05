@@ -14,7 +14,7 @@ app.whenReady().then(async () => {
   for (const j of cfg.jobs) {
     const win = new BrowserWindow({ width: j.w, height: j.h, show: false })
     win.webContents.on('console-message', e => { if (e.level === 'error') console.log(`[${j.name}]`, e.message) })
-    const load = async () => { for (let i = 0; i < 4; i++) { try { await win.loadURL(cfg.url); return } catch { await sleep(500) } } }
+    const load = async () => { for (let i = 0; i < 4; i++) { try { await win.loadURL(j.url || cfg.url); return } catch { await sleep(500) } } }
     await load()
     await win.webContents.executeJavaScript(`localStorage.setItem('vt_prefs', JSON.stringify(${JSON.stringify({ theme: j.theme || 'light', palette: j.palette || 'ink' })}))`)
     await load()
