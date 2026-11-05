@@ -83,7 +83,7 @@ export function printEvaluation(r, doc, f = {}) {
   const title = `${r.materialName}${r.grade ? ` ${r.grade}` : ''} (${r.candidate || 'candidate'}) Evaluation Summary (${fmtDate(todayIso())})`
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${CSS(title)}</style></head><body>
     <p class="muted">${esc([r.materialName, r.grade].filter(Boolean).join(' · '))}${r.itemCode ? ` · item ${esc(r.itemCode)}` : ''}</p>
-    <h1>${esc(r.candidate || 'Candidate not set')} · ${esc(STATUS[r.status].label)}</h1>
+    <h1>${esc(r.materialName)}${r.grade ? ` ${esc(r.grade)}` : ''} · ${esc(STATUS[r.status].label)}</h1>
     <div class="line">${r.stations.map(s => `<div class="${s.state}"><b>${esc(s.label)}</b><br>${esc(s.result || '')}<br><span class="muted">${s.date ? fmtDate(s.date) + (s.est ? '*' : '') : ''}</span></div>`).join('')}</div>
     <div class="grid2"><div>
       ${r.verdictLine ? `<div class="box"><h2>Verdict</h2><p>${esc(r.verdictLine)}</p></div>` : ''}

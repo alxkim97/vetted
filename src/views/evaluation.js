@@ -130,13 +130,13 @@ function tracker(r) {
     const tag = ro ? 'div' : 'button'
     const attrs = ro ? '' : ` type="button" data-menu="stage-${s.key}"${fromFile(s.key) ? ' data-locked="1"' : ''}`
     const train = s.state === 'now' ? `<span class="train">${icon('train', 13)}${r.stages.outcome ? esc(s.result) : s.days != null ? `Here · ${s.days} d` : 'Here'}</span>` : ''
-    return `<${tag} class="st ${s.state}${s.filled ? ' filled' : ''} t-${tone}" data-tip="${esc(tip)}"${attrs}>${train}<span class="dot">${s.state === 'done' || s.filled ? icon(s.tone === 'red' ? 'x' : 'check', 14) : ''}</span>
+    return `<${tag} class="st ${s.state}${s.filled ? ' filled' : ''} t-${tone}" data-tip="${esc(tip)}"${attrs}>${train}<span class="dot">${(s.state === 'done' || s.filled) && !(s.key === 'avl' && s.tone === 'grey') ? icon(s.tone === 'red' ? 'x' : 'check', 14) : ''}</span>
       <b>${esc(s.label)}</b><span class="res">${esc(s.result) || '&nbsp;'}</span><span class="when">${s.sub ? esc(s.sub) : s.inferred ? 'inferred' : s.date ? `${fmtDate(s.date)}${s.est ? '*' : ''}` : s.state === 'now' && s.since ? `since ${fmtDate(s.since)}` : '&nbsp;'}</span></${tag}>`
   }).join('')
   const h = r.holder
   const open = r.openRequests.filter(q => q.topic !== 'form')
   const holder = h.closed
-    ? `<span class="who"><span class="av">${icon('check', 13)}</span>Closed: ${esc(STATUS[r.status].label)}</span><span class="what">${h.since ? `on ${fmtDate(h.since)}` : ''}${r.avlNotListed ? ` · <b class="warn-text">not on QA's AVL yet</b>` : ''}</span>`
+    ? `<span class="who"><span class="av">${icon('check', 13)}</span>Closed: ${esc(STATUS[r.status].label)}</span><span class="what">${h.since ? `on ${fmtDate(h.since)}` : ''}</span>`
     : h.you
       ? `<span class="who"><span class="av">RD</span>With you</span><span class="what">${h.since ? `since ${fmtDate(h.since)} · ${daysBetween(h.since, todayIso())} d · ` : ''}${esc(r.nextAction || r.nextStep || '')}</span>`
       : `<span class="who"><span class="av">${esc(h.who.slice(0, 2).toUpperCase())}</span>With ${esc(h.who)}</span><span class="what">since ${fmtDate(h.since)} · ${daysBetween(h.since, todayIso())} d${h.what.length ? ` · ${esc(h.what.join('; '))}` : ''}</span>`
@@ -184,10 +184,10 @@ function header(r) {
       </div>
     </div>
     <header class="evh">
-      <p class="eyebrow">${esc([r.materialName, r.grade].filter(Boolean).join(' · '))}${r.itemCode ? ` · item ${esc(r.itemCode)}` : ''}</p>
-      <div class="evh-title"><h1>${r.candidate ? esc(r.candidate) : 'Manufacturer not set'}</h1>${pill(r, 'big')}</div>
+      ${r.itemCode ? `<p class="eyebrow">Item ${esc(r.itemCode)}${r.kind ? ` · ${r.kind === 'api' ? 'API' : 'Excipient'}` : ''}</p>` : ''}
+      <div class="evh-title"><h1>${esc(r.materialName)}${r.grade ? ` <span class="evh-grade">${esc(r.grade)}</span>` : ''}</h1>${pill(r, 'big')}</div>
       <div class="evh-meta">
-        ${r.manufacturer && r.manufacturer !== r.candidate ? `<span>${esc(r.manufacturer)}</span>` : ''}
+        <span class="evh-maker">${r.manufacturer ? esc(r.manufacturer) : 'Manufacturer not set'}</span>
         ${r.supplier ? `<span>via ${esc(r.supplier)}</span>` : ''}
         ${f.price ? `<span>฿${esc(f.price)} / kg</span>` : ''}
         ${r.rev != null ? `<span>R.${r.rev} · ${fmtDate(r.revDate)}</span>` : ''}
@@ -271,7 +271,7 @@ function factsPanel(r, f) {
     </form>`
   }
   const dl = [
-    ['Manufacturer', r.manufacturer], ['Distributor', r.supplier], ['Price', f.price ? `฿${f.price} / kg` : null],
+    ['Manufacturer', r.manufacturer], ['Supplier', r.supplier], ['Price', f.price ? `฿${f.price} / kg` : null],
     ['Item code', r.itemCode], ['Type', r.kind ? (r.kind === 'api' ? 'API' : 'Excipient') : null],
     ['Reference', f.opLine ? (f.opLine.length > 140 ? f.opLine.slice(0, 137) + '…' : f.opLine) : null],
     ['CoA cites', f.candEdition], ['Used in', productNames(r.products).join(', ') || null],
@@ -305,7 +305,7 @@ function emptyDoc(r, entry) {
 }
 
 // ── Timeline ──
-const STAGE_WORD = { pass: 'Pass', gap: 'Missing', fail: 'Fail', approved: 'Approved', not_approved: 'Not approved', closed: 'Closed', true: 'Listed', false: 'New source' }
+const STAGE_WORD = { pass: 'Pass', gap: 'Missing', fail: 'Fail', approved: 'Approved', not_approved: 'Not approved', closed: 'Closed', true: 'Listed', false: 'Not listed' }
 function timelineTab(r) {
   const ro = readOnly()
   const evs = r.events.slice().reverse()

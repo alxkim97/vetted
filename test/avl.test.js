@@ -53,14 +53,21 @@ test('closed: CoA from the verdict, or Fail for a Not approved with nothing else
   assert.equal(c.stations[1].state, 'skipped')
 })
 
-test('AVL station from the list; approved but not listed shows amber; a hand-set value wins', () => {
+test('AVL station: Listed, Not listed, or not checked; a hand-set value wins', () => {
   const m = listed => ({ file_date: '2026-10-22', listed, manufacturer: 'Maker Ltd', material: 'Material A', date: '2026-10-06' })
   const [a] = buildRows({ materials, evaluations: [{ ...base, outcome: 'approved', avl_match: m(true) }], events: [] })
-  assert.deepEqual([a.stations[0].result, a.stations[0].tone, a.stations[0].sub], ['Added', 'green', 'added 06-10-26'])
+  assert.deepEqual([a.stations[0].result, a.stations[0].tone, a.stations[0].state], ['Listed', 'green', 'done'])
   const [b] = buildRows({ materials, evaluations: [{ ...base, outcome: 'approved', avl_match: m(false) }], events: [] })
-  assert.deepEqual([b.stations[0].result, b.stations[0].tone, b.avlNotListed], ['Not on AVL yet', 'amber', true])
-  const [c] = buildRows({ materials, evaluations: [{ ...base, avl_match: m(false) }], events: [] })
-  assert.equal(c.stations[0].result, 'New source')
+  assert.deepEqual([b.stations[0].result, b.stations[0].tone], ['Not listed', 'grey'])
+  const [c] = buildRows({ materials, evaluations: [{ ...base, avl_match: { file_date: '2026-10-22', listed: null, review: [{ manufacturer: 'Maker', material: 'Material A Type A', active: true }] } }], events: [] })
+  assert.deepEqual([c.stations[0].result, c.stations[0].state], ['Not checked', 'skipped'])
   const [d] = buildRows({ materials, evaluations: [{ ...base, avl_listed: true, avl_match: m(false) }], events: [] })
   assert.deepEqual([d.stations[0].result, d.avlListed], ['Listed', true])
+})
+
+test('a Thai name in brackets after an English supplier is the same supplier', () => {
+  const [r] = buildRows({ materials, evaluations: [{ ...base, supplier: 'Acme Trading Co., Ltd. (บจก. แอคมี เทรดดิ้ง)' }], events: [] })
+  assert.equal(r.supplier, 'Acme Trading Co., Ltd.')
+  const [t] = buildRows({ materials, evaluations: [{ ...base, supplier: 'บจก. ตัวอย่าง' }], events: [] })
+  assert.equal(t.supplier, 'บจก. ตัวอย่าง')
 })

@@ -94,7 +94,7 @@ function weekItems() {
   }
   return items.sort((a, b) => b.date.localeCompare(a.date))
 }
-const stageLabel = ev => `${STATIONS.find(([k]) => k === (ev.what === 'outcome' ? 'decision' : ev.what))?.[1] ?? ev.what} → ${ev.note == null ? 'cleared' : { pass: 'Pass', gap: 'Missing', fail: 'Fail', approved: 'Approved', not_approved: 'Not approved', closed: 'Closed', true: 'Listed', false: 'New source' }[ev.note] ?? ev.note}`
+const stageLabel = ev => `${STATIONS.find(([k]) => k === (ev.what === 'outcome' ? 'decision' : ev.what))?.[1] ?? ev.what} → ${ev.note == null ? 'cleared' : { pass: 'Pass', gap: 'Missing', fail: 'Fail', approved: 'Approved', not_approved: 'Not approved', closed: 'Closed', true: 'Listed', false: 'Not listed' }[ev.note] ?? ev.note}`
 
 function weekCard() {
   const today = todayIso()

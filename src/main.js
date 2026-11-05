@@ -336,7 +336,7 @@ document.addEventListener('click', async e => {
       case 'share-copy': return copyText(viewLink(), 'View link copied')
       case 'avl-set': {
         const r = state.rows.find(x => x.id === id)
-        if (r) await setStage(r, 'avl', value === 'true', `AVL ${value === 'true' ? 'Listed' : 'New source'}`)
+        if (r) await setStage(r, 'avl', value === 'true', `AVL ${value === 'true' ? 'Listed' : 'Not listed'}`)
         return
       }
       case 'share-revoke': {

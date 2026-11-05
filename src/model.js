@@ -19,7 +19,7 @@ export const STATUS = {
 
 // The four stages in order, and what each value reads as. avl is rm_evaluations.avl_listed.
 export const STAGES = [
-  { key: 'avl', label: 'AVL check', short: 'AVL', values: [[true, 'Confirmed', 'green'], [false, 'New source', 'green']] },
+  { key: 'avl', label: 'AVL check', short: 'AVL', values: [[true, 'Listed', 'green'], [false, 'Not listed', 'grey']] },
   { key: 'coa', label: 'CoA', short: 'CoA', values: [['pass', 'Pass', 'green'], ['gap', 'Missing', 'amber'], ['fail', 'Fail', 'red']] },
   { key: 'docs', label: 'Docs', short: 'Docs', values: [['pass', 'Pass', 'green'], ['gap', 'Missing', 'amber'], ['fail', 'Fail', 'red']] },
   { key: 'qc', label: 'QC sample', short: 'QC', values: [['approved', 'Approved', 'green'], ['not_approved', 'Not approved', 'red']] },
@@ -94,6 +94,14 @@ export function notEvaluated(products, materials) {
 }
 export const productNames = list => [...new Set(list.map(p => p.name))]
 
+// "Acme Co., Ltd. (บจก. แอคมี)" is Acme Co., Ltd.: a Thai name in brackets
+// after an English one is the same company, so it groups and filters as one.
+export const cleanSupplier = s => {
+  if (!s) return null
+  const t = String(s).replace(/\s*\([^)]*[\u0E00-\u0E7F][^)]*\)\s*$/, '').trim()
+  return /[A-Za-z]/.test(t) ? t : String(s).trim()
+}
+
 export function buildRows({ materials, evaluations, events }) {
   const today = todayIso()
   const matById = Object.fromEntries(materials.map(m => [m.id, m]))
@@ -127,13 +135,12 @@ export function buildRows({ materials, evaluations, events }) {
       materialName: m.name, grade: e.grade,
       // The candidate is its manufacturer; PU's distributor is the supplier.
       candidate: t.manufacturer || e.manufacturer || t.candidate || e.candidate_name || e.candidate || null,
-      supplier: t.supplier || e.supplier || null,
+      supplier: cleanSupplier(t.supplier || e.supplier),
       manufacturer: t.manufacturer || e.manufacturer || t.candidate || e.candidate_name || e.candidate || null,
       avl: t.avl_listed ?? e.avl_listed ?? null,
       // Set by hand, else from QA's AVL list (null while a close match waits for a yes/no).
       avlListed: stages.avl ?? e.avl_match?.listed ?? null,
       avlMatch: e.avl_match ?? null,
-      avlNotListed: stages.outcome === 'approved' && e.avl_match?.listed === false,
       itemCode: t.item_code || e.item_code || null,
       kind: t.kind || m.kind || null,
       products: productsFor(m, e.grade),
@@ -194,7 +201,7 @@ export function stageDates(stages, evs, b) {
 // evaluation closed early).
 export const STATIONS = [['avl', 'AVL'], ['coa', 'CoA'], ['docs', 'Docs'], ['qc', 'QC sample'], ['decision', 'Decision']]
 const RESULT_WORD = {
-  avl: { true: ['Listed', 'green'], false: ['New source', 'green'] },
+  avl: { true: ['Listed', 'green'], false: ['Not listed', 'grey'] },
   coa: { pass: ['Pass', 'green'], gap: ['Missing', 'amber'], fail: ['Fail', 'red'] },
   docs: { pass: ['Pass', 'green'], gap: ['Missing', 'amber'], fail: ['Fail', 'red'] },
   qc: { approved: ['Approved', 'green'], not_approved: ['Not approved', 'red'] },
@@ -210,18 +217,17 @@ export function autoStages(stages, e, { firstDocs } = {}) {
   const auto = {}
   const m = e.avl_match
   const asOf = m?.file_date ? `, list as of ${fmtDate(m.file_date)}` : ''
+  // Three states only: Listed (this material from this manufacturer is on the
+  // AVL, so it has been used and passed before), Not listed, or not checked.
   if (stages.avl == null && m) {
     if (m.listed === true) {
-      // Listed on or after this evaluation's first documents: QA added it since.
-      const added = !!m.date && m.date >= (firstDocs || e.first_rev_date || '9999')
-      auto.avl = { result: added ? 'Added' : 'Listed', tone: 'green', sub: added ? `added ${fmtDate(m.date)}` : 'on AVL',
-        basis: `On QA's AVL (FR-QA-PC-055) as ${m.manufacturer}, ${m.material}${m.date ? `, ${added ? 'added' : 'evaluated'} ${fmtDate(m.date)}` : ''}${asOf}` }
+      auto.avl = { result: 'Listed', tone: 'green', sub: 'AVL list',
+        basis: `On QA's AVL (FR-QA-PC-055) as ${m.manufacturer}, ${m.material}${m.date ? `, ${fmtDate(m.date)}` : ''}${asOf}` }
     } else if (m.listed === false) {
-      auto.avl = stages.outcome === 'approved'
-        ? { result: 'Not on AVL yet', tone: 'amber', sub: 'AVL list', basis: `Approved, but not on QA's AVL for this material yet${asOf}. QA usually adds it after approval.` }
-        : { result: 'New source', tone: 'green', sub: 'AVL list', basis: m.cancelled ? `On QA's AVL as ${m.manufacturer} but cancelled (${fmtDate(m.date)}), so a new source${asOf}` : `Not on QA's AVL for this material, so a new source${asOf}` }
+      auto.avl = { result: 'Not listed', tone: 'grey', sub: 'AVL list',
+        basis: m.cancelled ? `On QA's AVL as ${m.manufacturer} but cancelled (${fmtDate(m.date)}), so not listed${asOf}` : `This material from this manufacturer is not on QA's AVL${asOf}` }
     } else if (m.review?.length) {
-      auto.avl = { result: 'Confirm?', tone: 'amber', sub: 'close match', review: true,
+      auto.avl = { result: 'Not checked', tone: 'ink', sub: 'confirm in Settings', review: true,
         basis: `Close match on QA's AVL: ${m.review.map(r => `${r.manufacturer}, ${r.material}${r.active ? '' : ' (cancelled)'}`).join('; ')}. Confirm in Settings.` }
     }
   }

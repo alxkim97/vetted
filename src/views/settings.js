@@ -31,21 +31,18 @@ function shareBlock() {
 // approvals QA hasn't listed yet.
 function avlBlock() {
   const rows = state.rows.filter(r => r.avlMatch)
-  if (!rows.length) return `<p class="muted">Each scan reads QA's Approved Vendor List (FR-QA-PC-055 on Z:, read-only) and marks every candidate Listed or New source. Nothing read yet: run a scan from the desktop app with Z: connected${state.rows.length ? ', after the v0.7.2 SQL in supabase/SETUP.md' : ''}.</p>`
+  if (!rows.length) return `<p class="muted">Each scan reads QA's Approved Vendor List (FR-QA-PC-055 on Z:, read-only) and marks every candidate Listed (this material from this manufacturer is on it) or Not listed. Nothing read yet: run a scan from the desktop app with Z: connected${state.rows.length ? ', after the v0.7.2 SQL in supabase/SETUP.md' : ''}.</p>`
   const name = r => `${esc(r.materialName)}${r.grade ? ` ${esc(r.grade)}` : ''}${r.candidate ? ` · ${esc(r.candidate)}` : ''}`
   const asOf = rows.map(r => r.avlMatch.file_date).filter(Boolean).sort().pop()
   const n = v => rows.filter(r => r.avlListed === v).length
   const review = rows.filter(r => r.avlListed == null && r.avlMatch.review?.length)
   const unnamed = rows.filter(r => r.avlListed == null && !r.avlMatch.review?.length)
-  const notListed = rows.filter(r => r.avlNotListed)
-  return `<p class="muted">Read from FR-QA-PC-055 on every scan, read-only${asOf ? `; the list was last changed ${fmtDate(asOf)}` : ''}. ${n(true)} listed, ${n(false)} new source. A value you set on the AVL station always wins.</p>
+  return `<p class="muted">Read from FR-QA-PC-055 on every scan, read-only${asOf ? `; the list was last changed ${fmtDate(asOf)}` : ''}. ${n(true)} listed, ${n(false)} not listed. A value you set on the AVL station always wins.</p>
     ${review.length ? `<h3 class="avl-h">Close matches: is this the same source? <span class="count">${review.length}</span></h3>
       <ul class="avl-list">${review.map(r => `<li><a href="${evalHash(r.id)}">${name(r)}</a>
         <span class="muted small">${r.avlMatch.review.map(x => `${esc(x.manufacturer)} · ${esc(x.material)}${x.date ? ` · ${fmtDate(x.date)}` : ''}${x.active ? '' : ' · cancelled'}`).join('<br>')}</span>
-        <span class="avl-acts"><button class="btn soft small" data-act="avl-set" data-id="${r.id}" data-value="true">Listed</button><button class="btn soft small" data-act="avl-set" data-id="${r.id}" data-value="false">New source</button></span></li>`).join('')}</ul>` : ''}
-    ${unnamed.length ? `<p class="muted small">No manufacturer name to match for ${unnamed.map(r => `<a href="${evalHash(r.id)}">${name(r)}</a>`).join(', ')}. Add it on the evaluation page, or set the AVL station there.</p>` : ''}
-    ${notListed.length ? `<h3 class="avl-h">Approved, not on the AVL yet <span class="count">${notListed.length}</span></h3>
-      <ul class="avl-list">${notListed.map(r => `<li><a href="${evalHash(r.id)}">${name(r)}</a><span class="muted small">approved ${fmtDate(r.stageDates.outcome?.date)}</span></li>`).join('')}</ul>` : ''}`
+        <span class="avl-acts"><button class="btn soft small" data-act="avl-set" data-id="${r.id}" data-value="true">Listed</button><button class="btn soft small" data-act="avl-set" data-id="${r.id}" data-value="false">Not listed</button></span></li>`).join('')}</ul>` : ''}
+    ${unnamed.length ? `<p class="muted small">No manufacturer name to match for ${unnamed.map(r => `<a href="${evalHash(r.id)}">${name(r)}</a>`).join(', ')}. Add it on the evaluation page, or set the AVL station there.</p>` : ''}`
 }
 
 export function renderSettings() {

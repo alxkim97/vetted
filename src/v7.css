@@ -373,3 +373,14 @@ button.st:hover::before { opacity: .9; }
 .line .st:last-child[data-tip]::after { left: auto; right: 0; transform: none; text-align: right; }
 .settings .avl-card { grid-column: 1 / -1; }
 .settings .muted a { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
+/* v0.7.4: material is the page title, the manufacturer leads the line under it */
+.evh-grade { color: var(--text3); font-weight: 700; }
+.evh-maker { color: var(--text); font-weight: 650; font-size: 15px; }
+/* Selected row: a quiet tint, no outline (keyboard and click alike) */
+.grid tbody tr:focus, .grid tbody tr:focus-visible { outline: none; }
+.grid tbody tr.sel td { background: var(--surface-2); }
+/* AVL Not listed: checked, neutral. A mid-grey fill, apart from Closed's black. */
+.t-grey { --c: var(--text3); --cw: var(--surface-2); }
+.st.done.t-grey .dot { background: var(--text3); border-color: var(--text3); }
+.st.t-grey .res { color: var(--text2); }
+.mini-line i.done.t-grey { --c: var(--text3); }
