@@ -3,9 +3,10 @@ import './register.css'
 import './apple.css'
 import './evaluation.css'
 import './v7.css'
+import './busy.js'
 import { isConfigured } from './config.js'
 import { getSession, onAuthChange, isMember, fetchAll, runScan, signOut, fetchDoc, fetchGlossary, fetchShares, createShare, revokeShare, fetchView, fetchViewDoc, purgeFiles } from './data.js'
-import { state, savePrefs, setData, cacheData, restoreCache, clearCache, readOnly } from './store.js'
+import { state, savePrefs, setData, cacheData, restoreCache, clearCache, readOnly, rebuild } from './store.js'
 import { esc, icon, toast, closeTopModal, modalOpen, openMenu, closeMenu, copyText } from './ui.js'
 import { renderAuth, renderNotMember, renderNoTables } from './views/auth.js'
 import { renderOverview, overviewSummary } from './views/overview.js'
@@ -234,7 +235,7 @@ function render() {
   if (searchFocused) { const inp = root.querySelector('#search-input'); if (inp) { inp.focus(); inp.setSelectionRange(caret, caret) } }
 }
 evalHooks.render = render
-undoHooks.changed = render
+undoHooks.changed = () => { rebuild(); cacheData(); render() }
 
 // Scroll to a row or note; open its folded section first (switching to Comparison if needed).
 function jumpTo(elId) {

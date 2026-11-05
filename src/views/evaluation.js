@@ -122,6 +122,7 @@ function tracker(r) {
   const st = r.stations.map(s => {
     const tip = s.state === 'now'
       ? s.days != null ? `At ${s.label} ${s.days} d · since ${fmtDate(s.since)}` : `${s.label}${s.result ? `: ${s.result}` : ''}${s.date ? ` · ${fmtDate(s.date)}` : ''}`
+      : s.inferred ? `${s.label}: ${s.result}, inferred from the approval (not recorded)`
       : s.state === 'done' ? `${s.label}${s.days != null ? ` took ${s.days} d` : ''}${s.from && s.date ? ` · ${fmtDate(s.from)} → ${fmtDate(s.date)}` : s.date ? ` · ${fmtDate(s.date)}` : ''}${s.est ? ' (date estimated)' : ''}`
       : s.state === 'skipped' ? `${s.label}: not recorded` : `${s.label}: not reached yet`
     // While someone else has it, the current station's ring turns blue.
@@ -129,8 +130,8 @@ function tracker(r) {
     const tag = ro ? 'div' : 'button'
     const attrs = ro ? '' : ` type="button" data-menu="stage-${s.key}"${fromFile(s.key) ? ' data-locked="1"' : ''}`
     const train = s.state === 'now' ? `<span class="train">${icon('train', 13)}${r.stages.outcome ? esc(s.result) : s.days != null ? `Here · ${s.days} d` : 'Here'}</span>` : ''
-    return `<${tag} class="st ${s.state} t-${tone}" data-tip="${esc(tip)}"${attrs}>${train}<span class="dot">${s.state === 'done' ? icon(s.tone === 'red' ? 'x' : 'check', 14) : ''}</span>
-      <b>${esc(s.label)}</b><span class="res">${esc(s.result) || '&nbsp;'}</span><span class="when">${s.date ? `${fmtDate(s.date)}${s.est ? '*' : ''}` : s.state === 'now' && s.since ? `since ${fmtDate(s.since)}` : '&nbsp;'}</span></${tag}>`
+    return `<${tag} class="st ${s.state}${s.filled ? ' filled' : ''} t-${tone}" data-tip="${esc(tip)}"${attrs}>${train}<span class="dot">${s.state === 'done' || s.filled ? icon(s.tone === 'red' ? 'x' : 'check', 14) : ''}</span>
+      <b>${esc(s.label)}</b><span class="res">${esc(s.result) || '&nbsp;'}</span><span class="when">${s.inferred ? 'inferred' : s.date ? `${fmtDate(s.date)}${s.est ? '*' : ''}` : s.state === 'now' && s.since ? `since ${fmtDate(s.since)}` : '&nbsp;'}</span></${tag}>`
   }).join('')
   const h = r.holder
   const open = r.openRequests.filter(q => q.topic !== 'form')
@@ -304,7 +305,7 @@ function emptyDoc(r, entry) {
 }
 
 // ── Timeline ──
-const STAGE_WORD = { pass: 'Pass', gap: 'Missing', fail: 'Fail', approved: 'Approved', not_approved: 'Not approved', closed: 'Closed', true: 'Listed', false: 'Not listed' }
+const STAGE_WORD = { pass: 'Pass', gap: 'Missing', fail: 'Fail', approved: 'Approved', not_approved: 'Not approved', closed: 'Closed', true: 'Listed', false: 'New source' }
 function timelineTab(r) {
   const ro = readOnly()
   const evs = r.events.slice().reverse()
@@ -368,7 +369,7 @@ function documentsTab(r) {
   else {
     const src = isDesktop() ? `vetted-file://doc/${encodeURIComponent(pick.rel)}` : ui.fileSrc[pick.path]
     if (!src && !isDesktop()) loadFileSrc(pick.path)
-    viewer = src ? `<iframe class="pdf-frame" src="${esc(src)}" title="${esc(pick.name)}"></iframe>` : `<div class="fe-empty">${icon('sync', 18)} Loading ${esc(pick.name)}…</div>`
+    viewer = src ? `<div class="pdf-wrap"><p class="pdf-loading">${icon('sync', 16)} Opening ${esc(pick.name.replace(/^\d{6}\s+/, ''))}…</p><iframe class="pdf-frame" src="${esc(src)}" title="${esc(pick.name)}"></iframe></div>` : `<div class="fe-empty">${icon('sync', 18)} Loading ${esc(pick.name)}…</div>`
   }
   const byDate = {}
   for (const f of files) (byDate[f.doc_date || ''] ||= []).push(f)

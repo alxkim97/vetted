@@ -67,7 +67,7 @@ export const CHIPS = [
   ['in_progress', 'In progress', 'blue', ['in_progress']],
   ['approved', 'Approved', 'green', ['approved']],
   ['not_approved', 'Not approved', 'slate', ['not_approved']],
-  ['closed', 'Closed', 'grey', ['closed']],
+  ['closed', 'Closed', 'ink', ['closed']],
 ]
 export const YOUR_MOVE = CHIPS[0][3]
 export const CLOSED = ['approved', 'not_approved', 'closed']

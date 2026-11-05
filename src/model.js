@@ -11,15 +11,15 @@ export const STATUS = {
   untagged:     { label: 'Not tagged', tone: 'violet', order: 2, hint: 'Has a verdict line; set the CoA result' },
   awaiting:     { label: 'No file yet', tone: 'violet', order: 2, hint: 'Documents in, no comparison file yet' },
   in_progress:  { label: 'In progress', tone: 'blue', order: 3, hint: 'Request sent; follow it up' },
-  not_approved: { label: 'Not approved', tone: 'slate', order: 4, hint: 'Closed: Selection Form not approved' },
+  not_approved: { label: 'Not approved', tone: 'red', order: 4, hint: 'Closed: Selection Form not approved' },
   approved:     { label: 'Approved', tone: 'green', order: 5, hint: 'Closed: Selection Form approved' },
-  closed:       { label: 'Closed', tone: 'grey', order: 6, hint: 'Closed without a new approval: already on the AVL, or a special case' },
+  closed:       { label: 'Closed', tone: 'ink', order: 6, hint: 'Closed without a new approval: already on the AVL, or a special case' },
   unreadable:   { label: 'Not readable', tone: 'grey', order: 7, hint: 'Verdict only in a count table (older file)' },
 }
 
 // The four stages in order, and what each value reads as. avl is rm_evaluations.avl_listed.
 export const STAGES = [
-  { key: 'avl', label: 'AVL check', short: 'AVL', values: [[true, 'Confirmed', 'green'], [false, 'Differs', 'slate']] },
+  { key: 'avl', label: 'AVL check', short: 'AVL', values: [[true, 'Confirmed', 'green'], [false, 'New source', 'green']] },
   { key: 'coa', label: 'CoA', short: 'CoA', values: [['pass', 'Pass', 'green'], ['gap', 'Missing', 'amber'], ['fail', 'Fail', 'red']] },
   { key: 'docs', label: 'Docs', short: 'Docs', values: [['pass', 'Pass', 'green'], ['gap', 'Missing', 'amber'], ['fail', 'Fail', 'red']] },
   { key: 'qc', label: 'QC sample', short: 'QC', values: [['approved', 'Approved', 'green'], ['not_approved', 'Not approved', 'red']] },
@@ -188,11 +188,11 @@ export function stageDates(stages, evs, b) {
 // evaluation closed early).
 export const STATIONS = [['avl', 'AVL'], ['coa', 'CoA'], ['docs', 'Docs'], ['qc', 'QC sample'], ['decision', 'Decision']]
 const RESULT_WORD = {
-  avl: { true: ['Listed', 'green'], false: ['Not listed', 'ink'] },
+  avl: { true: ['Listed', 'green'], false: ['New source', 'green'] },
   coa: { pass: ['Pass', 'green'], gap: ['Missing', 'amber'], fail: ['Fail', 'red'] },
   docs: { pass: ['Pass', 'green'], gap: ['Missing', 'amber'], fail: ['Fail', 'red'] },
   qc: { approved: ['Approved', 'green'], not_approved: ['Not approved', 'red'] },
-  decision: { approved: ['Approved', 'green'], not_approved: ['Not approved', 'slate'], closed: ['Closed', 'grey'] },
+  decision: { approved: ['Approved', 'green'], not_approved: ['Not approved', 'red'], closed: ['Closed', 'ink'] },
 }
 const DONE = { coa: v => v === 'pass', docs: v => v === 'pass', qc: v => v === 'approved', decision: v => v != null }
 
@@ -205,12 +205,15 @@ export function stationsOf(stages, sd, { hasFile, firstDocs, today = todayIso() 
   let arrived = firstDocs
   return STATIONS.map(([k, label], i) => {
     const v = val(k)
-    const [result, tone] = v != null ? RESULT_WORD[k][String(v)] ?? ['', 'ink']
+    let [result, tone] = v != null ? RESULT_WORD[k][String(v)] ?? ['', 'ink']
       : k === 'coa' && i === nowIdx && !hasFile ? ['No file yet', 'ink'] : ['', 'ink']
-    const d = dateOf(k)
-    const state = i === nowIdx ? 'now' : i > nowIdx ? 'ahead' : v != null ? 'done' : 'skipped'
-    const st = { key: k, label, state, result, tone, date: d?.date ?? null, est: !!d?.est, from: arrived }
-    if (state === 'done' && d?.date) {
+    let d = dateOf(k)
+    // An approval means CoA, Docs and QC all passed; show them so, marked as inferred.
+    const inferred = stages.outcome === 'approved' && v == null && ['coa', 'docs', 'qc'].includes(k)
+    if (inferred) { [result, tone] = [k === 'qc' ? 'Approved' : 'Pass', 'green']; d = sd.outcome }
+    const state = i === nowIdx ? 'now' : i > nowIdx ? 'ahead' : v != null || inferred ? 'done' : 'skipped'
+    const st = { key: k, label, state, result, tone, filled: closed && i === nowIdx, date: inferred ? null : d?.date ?? null, est: !!d?.est, inferred, from: arrived }
+    if (state === 'done' && d?.date && !inferred) {
       st.days = arrived && d.date >= arrived ? daysBetween(arrived, d.date) : null
       arrived = d.date
     }

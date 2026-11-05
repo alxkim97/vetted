@@ -96,3 +96,9 @@ test('chat prompt names the next revision and the operative reference', () => {
   assert.match(p, /261027 Material A Selection Form\.pdf/)
   assert.match(p, /C:\\RM\\CLAUDE\.md/)
 })
+
+test('approved: CoA, Docs and QC show as passed, inferred, when they were never recorded', () => {
+  const [r] = buildRows({ materials, evaluations: [{ ...base, outcome: 'approved' }], events: [ev('o', '2026-11-05', 'stage', { what: 'outcome', note: 'approved' })] })
+  assert.deepEqual(r.stations.map(s => s.state), ['skipped', 'done', 'done', 'done', 'now'])
+  assert.deepEqual(r.stations.slice(1, 4).map(s => [s.result, s.inferred]), [['Pass', true], ['Pass', true], ['Approved', true]])
+})

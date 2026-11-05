@@ -337,3 +337,22 @@ button.st:hover::before { opacity: .9; }
 .mini-line i.t-amber { --c: #e0b400; }
 .st.t-amber .dot, .st.now.t-amber .dot { --c: #e0b400; }
 .st.t-amber .res { color: var(--amber); }
+
+/* Loading: a moving bar while requests run; the PDF frame shows "Opening…" until it paints */
+.busy-bar { position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 100; opacity: 0; pointer-events: none; overflow: hidden; transition: opacity .15s; }
+.busy-bar.on { opacity: 1; }
+.busy-bar::before { content: ''; position: absolute; top: 0; bottom: 0; width: 35%; background: var(--yellow); border-radius: 3px; animation: busy-run 1.1s ease-in-out infinite; }
+@keyframes busy-run { from { left: -35%; } to { left: 100%; } }
+@media (prefers-reduced-motion: reduce) { .busy-bar::before { animation: none; left: 0; width: 100%; opacity: .7; } }
+.pdf-wrap { position: relative; flex: 1; min-width: 0; }
+.pdf-loading { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0; color: var(--text3); font-size: 13px; text-align: center; padding: 24px; }
+.pdf-loading .ico { animation: spin 1s linear infinite; }
+.pdf-wrap .pdf-frame { position: relative; background: transparent; }
+.st.done .when:empty { min-height: 1.2em; }
+.grid tbody tr.t-amber { --c: #e0b400; }
+
+/* Closed: the Decision stop is filled in its colour (all green for an approved RM) */
+.st.now.filled .dot, .st.now.filled.t-ink .dot { width: 30px; height: 30px; margin: 0; border: 0; background: var(--c); color: var(--surface); }
+.st.now.filled.t-ink .dot { background: var(--text); }
+.mini-line i.now.filled { background: var(--c); box-shadow: none; }
+@media (max-width: 859px) { .st.now.filled .dot { width: 22px; height: 22px; } }

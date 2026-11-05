@@ -1,4 +1,5 @@
-const { app, BrowserWindow, ipcMain, dialog, shell, protocol, net } = require('electron')
+const { app, BrowserWindow, ipcMain, dialog, shell, protocol } = require('electron')
+const { Readable } = require('stream')
 const path = require('path')
 const fs = require('fs')
 const { pathToFileURL } = require('url')
@@ -130,7 +131,10 @@ app.whenReady().then(() => {
     const rel = decodeURIComponent(new URL(req.url).pathname.replace(/^\//, ''))
     const target = path.resolve(base, rel)
     if (!target.startsWith(base + path.sep)) return new Response('Outside the RM folder', { status: 403 })
-    return net.fetch(pathToFileURL(target).href)
+    if (!fs.existsSync(target)) return new Response('Not found', { status: 404 })
+    // Streamed straight from disk: Chromium's file:// fetch failed on some file names.
+    const type = { '.pdf': 'application/pdf', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' }[path.extname(target).toLowerCase()] || 'application/octet-stream'
+    return new Response(Readable.toWeb(fs.createReadStream(target)), { headers: { 'content-type': type } })
   })
   createWindow()
   if (!isDev) setTimeout(() => autoUpdater.checkForUpdates().catch(() => {}), 10_000)

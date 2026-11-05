@@ -26,7 +26,9 @@ async function step(from, to, dir) {
     hooks.changed()
     toast(`${dir === 'undo' ? 'Undone' : 'Redone'}: ${entry.label}`)
   } catch (err) {
-    toast(err.message || String(err))
+    from.push(entry)
+    hooks.changed()
+    toast(`Couldn't ${dir}: ${err.message || err}`)
   }
 }
 export const undo = () => step(past, future, 'undo')

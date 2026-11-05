@@ -17,7 +17,7 @@ export function miniLine(r) {
   const dots = r.stations.map((s, i) => {
     const track = i ? `<s class="${s.state === 'ahead' ? 'ahead' : ''}"></s>` : ''
     const tone = s.state === 'now' ? r.status === 'in_progress' ? 'blue' : TONE[s.tone] || 'ink' : TONE[s.tone] || 'ink'
-    return `${track}<i class="${s.state} t-${tone}" title="${esc(`${s.label}${s.result ? `: ${s.result}` : ''}${s.date ? ` · ${fmtDate(s.date)}` : ''}`)}"></i>`
+    return `${track}<i class="${s.state}${s.filled ? ' filled' : ''} t-${tone}" title="${esc(`${s.label}${s.result ? `: ${s.result}` : ''}${s.date ? ` · ${fmtDate(s.date)}` : ''}`)}"></i>`
   }).join('')
   return `<span class="mini-line" aria-label="At ${esc(now?.label || '')}">${dots}</span><span class="mini-at">${esc((now?.label || '').replace('QC sample', 'QC'))}</span>`
 }
