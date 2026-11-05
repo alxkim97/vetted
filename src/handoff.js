@@ -109,7 +109,7 @@ export function puMessage(r, { body, doc, link } = {}) {
   else result = `*RD ประเมินเอกสารแล้วครับ ผลเป็น ไม่ผ่าน${t?.fail ? ` (ไม่ผ่าน ${t.fail} หัวข้อ)` : ''}*`
   const source = `${maker}${r.supplier && r.supplier !== maker ? ` (ผ่าน ${r.supplier})` : ''}${f.price ? ` ฿${f.price}/kg` : ''}`
   const out = [head, '', result, '', source]
-  if (r.stages.avl === true) out.push('', `*ผู้ผลิตรายนี้ อยู่ใน AVL ของ ${r.itemCode || r.materialName} อยู่แล้ว*`)
+  if (r.avlListed === true) out.push('', `*ผู้ผลิตรายนี้ อยู่ใน AVL ของ ${r.itemCode || r.materialName} อยู่แล้ว*`)
   if (f.ref) {
     out.push('', 'มาตรฐานที่ใช้:', `- ${f.ref} = มาตรฐานหลัก${f.spec && !f.ref.includes(f.spec) ? ` ตาม spec APm (${f.spec})` : /^SD-QC/.test(f.ref) ? ' (spec ของ APm)' : ''}`)
     if (f.candEdition) out.push(`- ${f.candEdition} = ฉบับที่ CoA ของ ${maker} อ้าง`)

@@ -223,7 +223,16 @@ drop policy if exists "rm-files members" on storage.objects;
 create policy "rm-files members" on storage.objects for all to authenticated
   using (bucket_id = 'rm-files' and is_worklog_member())
   with check (bucket_id = 'rm-files' and is_worklog_member());
+
+-- ── QA's AVL match per candidate (v0.7.2) ──────────────────────────────
+-- Written by each scan from FR-QA-PC-055 (read-only). avl_listed, set by
+-- hand, still wins in the app.
+alter table rm_evaluations add column if not exists avl_match jsonb;
 ```
+
+The AVL file is read from `Z:\3.QA-Shared\7.AVL\` by default; set `AVL_FILE`
+in `.env.local` to read another copy. When Z: isn't connected the scan skips
+it and keeps the last result.
 
 ## `.env.local` (scheduled scan and `rm-log`)
 

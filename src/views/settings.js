@@ -1,7 +1,7 @@
 import { state } from '../store.js'
 import { fmtDate } from '../model.js'
 import { esc, icon } from '../ui.js'
-import { viewLink } from '../parts.js'
+import { viewLink, evalHash } from '../parts.js'
 
 const isDesktop = () => !!window.electronAPI?.isElectron
 
@@ -27,6 +27,27 @@ function shareBlock() {
     <div class="row-gap"><button class="btn ghost small danger-text" data-act="share-revoke" data-value="${esc(s.token)}">Turn it off and make a new one</button></div>`
 }
 
+// QA's AVL as the last scan read it: close matches to settle once, and
+// approvals QA hasn't listed yet.
+function avlBlock() {
+  const rows = state.rows.filter(r => r.avlMatch)
+  if (!rows.length) return `<p class="muted">Each scan reads QA's Approved Vendor List (FR-QA-PC-055 on Z:, read-only) and marks every candidate Listed or New source. Nothing read yet: run a scan from the desktop app with Z: connected${state.rows.length ? ', after the v0.7.2 SQL in supabase/SETUP.md' : ''}.</p>`
+  const name = r => `${esc(r.materialName)}${r.grade ? ` ${esc(r.grade)}` : ''}${r.candidate ? ` · ${esc(r.candidate)}` : ''}`
+  const asOf = rows.map(r => r.avlMatch.file_date).filter(Boolean).sort().pop()
+  const n = v => rows.filter(r => r.avlListed === v).length
+  const review = rows.filter(r => r.avlListed == null && r.avlMatch.review?.length)
+  const unnamed = rows.filter(r => r.avlListed == null && !r.avlMatch.review?.length)
+  const notListed = rows.filter(r => r.avlNotListed)
+  return `<p class="muted">Read from FR-QA-PC-055 on every scan, read-only${asOf ? `; the list was last changed ${fmtDate(asOf)}` : ''}. ${n(true)} listed, ${n(false)} new source. A value you set on the AVL station always wins.</p>
+    ${review.length ? `<h3 class="avl-h">Close matches: is this the same source? <span class="count">${review.length}</span></h3>
+      <ul class="avl-list">${review.map(r => `<li><a href="${evalHash(r.id)}">${name(r)}</a>
+        <span class="muted small">${r.avlMatch.review.map(x => `${esc(x.manufacturer)} · ${esc(x.material)}${x.date ? ` · ${fmtDate(x.date)}` : ''}${x.active ? '' : ' · cancelled'}`).join('<br>')}</span>
+        <span class="avl-acts"><button class="btn soft small" data-act="avl-set" data-id="${r.id}" data-value="true">Listed</button><button class="btn soft small" data-act="avl-set" data-id="${r.id}" data-value="false">New source</button></span></li>`).join('')}</ul>` : ''}
+    ${unnamed.length ? `<p class="muted small">No manufacturer name to match for ${unnamed.map(r => `<a href="${evalHash(r.id)}">${name(r)}</a>`).join(', ')}. Add it on the evaluation page, or set the AVL station there.</p>` : ''}
+    ${notListed.length ? `<h3 class="avl-h">Approved, not on the AVL yet <span class="count">${notListed.length}</span></h3>
+      <ul class="avl-list">${notListed.map(r => `<li><a href="${evalHash(r.id)}">${name(r)}</a><span class="muted small">approved ${fmtDate(r.stageDates.outcome?.date)}</span></li>`).join('')}</ul>` : ''}`
+}
+
 export function renderSettings() {
   const run = state.data.lastRun
   return `
@@ -45,6 +66,11 @@ export function renderSettings() {
       <section class="card">
         <div class="card-head"><h2>${icon('eye', 18)} Manager view link</h2></div>
         ${shareBlock()}
+      </section>
+
+      <section class="card avl-card">
+        <div class="card-head"><h2>${icon('check', 18)} QA's AVL</h2></div>
+        ${avlBlock()}
       </section>
 
       <section class="card">

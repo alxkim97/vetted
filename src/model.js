@@ -119,7 +119,8 @@ export function buildRows({ materials, evaluations, events }) {
     const dates = [e.rev_date, ...evs.map(x => x.event_date)].filter(Boolean).sort()
     const openData = open.filter(x => x.topic !== 'form')
     const sd = stageDates(stages, evs, { verdictDate, verdictExact: !!t.verdict_date, revDate: e.rev_date, firstDocs, last: dates[dates.length - 1] ?? null })
-    const stations = stationsOf(stages, sd, { hasFile: !!e.file_name, firstDocs, today })
+    const auto = autoStages(stages, e, { firstDocs })
+    const stations = stationsOf(stages, sd, { hasFile: !!e.file_name, firstDocs, today, auto })
     const since = statusSince(status, sd, stations, { openData, firstDocs, revDate: e.rev_date })
     return {
       id: e.id, raw: e, material: m,
@@ -128,6 +129,10 @@ export function buildRows({ materials, evaluations, events }) {
       supplier: t.supplier || e.supplier || null,
       manufacturer: t.manufacturer || e.manufacturer || null,
       avl: t.avl_listed ?? e.avl_listed ?? null,
+      // Set by hand, else from QA's AVL list (null while a close match waits for a yes/no).
+      avlListed: stages.avl ?? e.avl_match?.listed ?? null,
+      avlMatch: e.avl_match ?? null,
+      avlNotListed: stages.outcome === 'approved' && e.avl_match?.listed === false,
       itemCode: t.item_code || e.item_code || null,
       kind: t.kind || m.kind || null,
       products: productsFor(m, e.grade),
@@ -196,7 +201,39 @@ const RESULT_WORD = {
 }
 const DONE = { coa: v => v === 'pass', docs: v => v === 'pass', qc: v => v === 'approved', decision: v => v != null }
 
-export function stationsOf(stages, sd, { hasFile, firstDocs, today = todayIso() }) {
+// Values the line can show without a recorded stage, each with where it came
+// from: AVL from QA's list (FR-QA-PC-055), and for a closed evaluation the CoA
+// from the comparison file's verdict, or Fail for a Not approved with nothing
+// else to go on (most stop at the CoA).
+export function autoStages(stages, e, { firstDocs } = {}) {
+  const auto = {}
+  const m = e.avl_match
+  const asOf = m?.file_date ? `, list as of ${fmtDate(m.file_date)}` : ''
+  if (stages.avl == null && m) {
+    if (m.listed === true) {
+      // Listed on or after this evaluation's first documents: QA added it since.
+      const added = !!m.date && m.date >= (firstDocs || e.first_rev_date || '9999')
+      auto.avl = { result: added ? 'Added' : 'Listed', tone: 'green', sub: added ? `added ${fmtDate(m.date)}` : 'on AVL',
+        basis: `On QA's AVL (FR-QA-PC-055) as ${m.manufacturer}, ${m.material}${m.date ? `, ${added ? 'added' : 'evaluated'} ${fmtDate(m.date)}` : ''}${asOf}` }
+    } else if (m.listed === false) {
+      auto.avl = stages.outcome === 'approved'
+        ? { result: 'Not on AVL yet', tone: 'amber', sub: 'AVL list', basis: `Approved, but not on QA's AVL for this material yet${asOf}. QA usually adds it after approval.` }
+        : { result: 'New source', tone: 'green', sub: 'AVL list', basis: m.cancelled ? `On QA's AVL as ${m.manufacturer} but cancelled (${fmtDate(m.date)}), so a new source${asOf}` : `Not on QA's AVL for this material, so a new source${asOf}` }
+    } else if (m.review?.length) {
+      auto.avl = { result: 'Confirm?', tone: 'amber', sub: 'close match', review: true,
+        basis: `Close match on QA's AVL: ${m.review.map(r => `${r.manufacturer}, ${r.material}${r.active ? '' : ' (cancelled)'}`).join('; ')}. Confirm in Settings.` }
+    }
+  }
+  if (stages.coa == null && stages.outcome != null) {
+    // The verdict's CoA word, not the decision it may also mention ("FAIL … Not approved 20-07-26").
+    const g = suggestStamp(String(e.verdict_line ?? '').replace(/closed\s*[—-]+\s*(not\s+)?approved|ไม่อนุมัติ|\bnot approved\b/gi, ' '))
+    if (['pass', 'gap', 'fail'].includes(g)) auto.coa = { value: g, basis: `From the comparison file's verdict${e.rev != null ? ` (R.${e.rev})` : ''}` }
+    else if (stages.outcome === 'not_approved') auto.coa = { value: 'fail', basis: 'Not approved with no CoA result recorded; most stop at the CoA' }
+  }
+  return auto
+}
+
+export function stationsOf(stages, sd, { hasFile, firstDocs, today = todayIso(), auto = {} }) {
   const val = k => k === 'decision' ? stages.outcome : stages[k]
   const dateOf = k => k === 'decision' ? sd.outcome : sd[k]
   const closed = stages.outcome != null
@@ -208,11 +245,18 @@ export function stationsOf(stages, sd, { hasFile, firstDocs, today = todayIso() 
     let [result, tone] = v != null ? RESULT_WORD[k][String(v)] ?? ['', 'ink']
       : k === 'coa' && i === nowIdx && !hasFile ? ['No file yet', 'ink'] : ['', 'ink']
     let d = dateOf(k)
-    // An approval means CoA, Docs and QC all passed; show them so, marked as inferred.
-    const inferred = stages.outcome === 'approved' && v == null && ['coa', 'docs', 'qc'].includes(k)
-    if (inferred) { [result, tone] = [k === 'qc' ? 'Approved' : 'Pass', 'green']; d = sd.outcome }
+    // Not recorded, but known from elsewhere: shown so, marked inferred, with its source.
+    // An approval means CoA, Docs and QC passed, unless the verdict says otherwise.
+    const a = v == null ? auto[k] : null
+    let inferred = false, basis = null, sub = null, review = false
+    if (a?.value) { [result, tone] = RESULT_WORD[k][a.value]; ({ basis } = a); inferred = true }
+    else if (a) { ({ result, tone, basis, sub } = a); review = !!a.review; inferred = !review }
+    else if (v == null && stages.outcome === 'approved' && ['coa', 'docs', 'qc'].includes(k)) {
+      [result, tone] = [k === 'qc' ? 'Approved' : 'Pass', 'green']; inferred = true; basis = 'Approved, so this passed (not recorded)'
+    }
+    if (inferred) d = null
     const state = i === nowIdx ? 'now' : i > nowIdx ? 'ahead' : v != null || inferred ? 'done' : 'skipped'
-    const st = { key: k, label, state, result, tone, filled: closed && i === nowIdx, date: inferred ? null : d?.date ?? null, est: !!d?.est, inferred, from: arrived }
+    const st = { key: k, label, state, result, tone, filled: closed && i === nowIdx, date: d?.date ?? null, est: !!d?.est, inferred, basis, sub, review, from: arrived }
     if (state === 'done' && d?.date && !inferred) {
       st.days = arrived && d.date >= arrived ? daysBetween(arrived, d.date) : null
       arrived = d.date

@@ -13,7 +13,7 @@ import { renderOverview, overviewSummary } from './views/overview.js'
 import { renderEvaluations, visibleRows, exportCsv, filtersMenuHtml, viewMenuItems, colFilterMenuHtml, setShown, columnOrder } from './views/evaluations.js'
 import { renderEvaluation, evalAction, evalChange, evalSubmit, evalPaste, evalDrop, stageMenu, handoffMenu, copyPromptFor, hooks as evalHooks, TAB_IDS } from './views/evaluation.js'
 import { renderSettings, scanSummary } from './views/settings.js'
-import { setReceived } from './edits.js'
+import { setReceived, setStage } from './edits.js'
 import { undo, redo, hooks as undoHooks, purgeOrphans } from './undo.js'
 import { printStatusList } from './print.js'
 import { viewLink } from './parts.js'
@@ -37,11 +37,16 @@ function parseHash() {
 const pre = () => state.viewToken ? `#/v/${state.viewToken}` : '#'
 const go = path => { location.hash = `${pre()}${path}` }
 
+// Where each list page was scrolled to when an evaluation was opened from it,
+// so the back link lands in the same place.
+const scrollMemo = {}
+
 function route() {
   const { parts } = parseHash()
   const [page, id, tab] = parts
   closeMenu()
   const prevView = state.view
+  if (page === 'e' && id && prevView !== 'evaluation' && state.lastHash) scrollMemo[state.lastHash] = window.scrollY
   if (page === 'e' && id) {
     const r = state.rows.find(x => x.id.startsWith(id))
     if (prevView !== 'evaluation' && state.lastHash) state.backHash = state.lastHash
@@ -54,7 +59,13 @@ function route() {
     state.lastHash = location.hash || '#/'
   }
   render()
-  if (prevView !== state.view || page === 'e') window.scrollTo(0, 0)
+  const back = prevView === 'evaluation' && page !== 'e' ? scrollMemo[location.hash || '#/'] : null
+  if (back != null) {
+    window.scrollTo(0, back)
+    // The row you came from, briefly highlighted.
+    const tr = state.evalId && document.querySelector(`tr[data-id="${state.evalId}"]`)
+    if (tr) { tr.classList.remove('flash'); void tr.offsetWidth; tr.classList.add('flash') }
+  } else if (prevView !== state.view || page === 'e') window.scrollTo(0, 0)
 }
 window.addEventListener('hashchange', route)
 
@@ -323,6 +334,11 @@ document.addEventListener('click', async e => {
       case 'theme': savePrefs({ theme: value }); applyTheme(value); return render()
       case 'share-create': state.shares = [await createShare()]; return render()
       case 'share-copy': return copyText(viewLink(), 'View link copied')
+      case 'avl-set': {
+        const r = state.rows.find(x => x.id === id)
+        if (r) await setStage(r, 'avl', value === 'true', `AVL ${value === 'true' ? 'Listed' : 'New source'}`)
+        return
+      }
       case 'share-revoke': {
         await revokeShare(value)
         state.shares = [await createShare()]

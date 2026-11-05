@@ -122,7 +122,7 @@ function tracker(r) {
   const st = r.stations.map(s => {
     const tip = s.state === 'now'
       ? s.days != null ? `At ${s.label} ${s.days} d · since ${fmtDate(s.since)}` : `${s.label}${s.result ? `: ${s.result}` : ''}${s.date ? ` · ${fmtDate(s.date)}` : ''}`
-      : s.inferred ? `${s.label}: ${s.result}, inferred from the approval (not recorded)`
+      : s.inferred || s.review ? `${s.label}: ${s.result} · ${s.basis}`
       : s.state === 'done' ? `${s.label}${s.days != null ? ` took ${s.days} d` : ''}${s.from && s.date ? ` · ${fmtDate(s.from)} → ${fmtDate(s.date)}` : s.date ? ` · ${fmtDate(s.date)}` : ''}${s.est ? ' (date estimated)' : ''}`
       : s.state === 'skipped' ? `${s.label}: not recorded` : `${s.label}: not reached yet`
     // While someone else has it, the current station's ring turns blue.
@@ -131,12 +131,12 @@ function tracker(r) {
     const attrs = ro ? '' : ` type="button" data-menu="stage-${s.key}"${fromFile(s.key) ? ' data-locked="1"' : ''}`
     const train = s.state === 'now' ? `<span class="train">${icon('train', 13)}${r.stages.outcome ? esc(s.result) : s.days != null ? `Here · ${s.days} d` : 'Here'}</span>` : ''
     return `<${tag} class="st ${s.state}${s.filled ? ' filled' : ''} t-${tone}" data-tip="${esc(tip)}"${attrs}>${train}<span class="dot">${s.state === 'done' || s.filled ? icon(s.tone === 'red' ? 'x' : 'check', 14) : ''}</span>
-      <b>${esc(s.label)}</b><span class="res">${esc(s.result) || '&nbsp;'}</span><span class="when">${s.inferred ? 'inferred' : s.date ? `${fmtDate(s.date)}${s.est ? '*' : ''}` : s.state === 'now' && s.since ? `since ${fmtDate(s.since)}` : '&nbsp;'}</span></${tag}>`
+      <b>${esc(s.label)}</b><span class="res">${esc(s.result) || '&nbsp;'}</span><span class="when">${s.sub ? esc(s.sub) : s.inferred ? 'inferred' : s.date ? `${fmtDate(s.date)}${s.est ? '*' : ''}` : s.state === 'now' && s.since ? `since ${fmtDate(s.since)}` : '&nbsp;'}</span></${tag}>`
   }).join('')
   const h = r.holder
   const open = r.openRequests.filter(q => q.topic !== 'form')
   const holder = h.closed
-    ? `<span class="who"><span class="av">${icon('check', 13)}</span>Closed: ${esc(STATUS[r.status].label)}</span><span class="what">${h.since ? `on ${fmtDate(h.since)}` : ''}</span>`
+    ? `<span class="who"><span class="av">${icon('check', 13)}</span>Closed: ${esc(STATUS[r.status].label)}</span><span class="what">${h.since ? `on ${fmtDate(h.since)}` : ''}${r.avlNotListed ? ` · <b class="warn-text">not on QA's AVL yet</b>` : ''}</span>`
     : h.you
       ? `<span class="who"><span class="av">RD</span>With you</span><span class="what">${h.since ? `since ${fmtDate(h.since)} · ${daysBetween(h.since, todayIso())} d · ` : ''}${esc(r.nextAction || r.nextStep || '')}</span>`
       : `<span class="who"><span class="av">${esc(h.who.slice(0, 2).toUpperCase())}</span>With ${esc(h.who)}</span><span class="what">since ${fmtDate(h.since)} · ${daysBetween(h.since, todayIso())} d${h.what.length ? ` · ${esc(h.what.join('; '))}` : ''}</span>`

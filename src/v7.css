@@ -356,3 +356,20 @@ button.st:hover::before { opacity: .9; }
 .st.now.filled.t-ink .dot { background: var(--text); }
 .mini-line i.now.filled { background: var(--c); box-shadow: none; }
 @media (max-width: 859px) { .st.now.filled .dot { width: 22px; height: 22px; } }
+
+/* v0.7.2: QA's AVL card in Settings, and the approved-not-listed note */
+.warn-text { color: var(--amber); font-weight: 650; }
+.avl-h { font-size: 14px; font-weight: 700; margin: 16px 0 6px; display: flex; align-items: center; gap: 8px; }
+.avl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.avl-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; align-items: center; padding: 8px 0; border-top: 1px solid var(--border); }
+.avl-list li > a { font-weight: 600; color: var(--text); text-decoration: none; }
+.avl-list li > a:hover { text-decoration: underline; }
+.avl-list li > .muted { grid-column: 1; }
+.avl-acts { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 6px; }
+@media (max-width: 560px) { .avl-list li { grid-template-columns: 1fr; } .avl-acts { grid-column: 1; grid-row: auto; } }
+/* Station tips carry a source now: wrap them, and keep the end stations' tips on screen */
+.st[data-tip]:hover::after, .st.tip-on::after { white-space: normal; width: max-content; max-width: min(340px, 80vw); text-align: center; line-height: 1.4; }
+.line .st:first-child[data-tip]::after { left: 0; transform: none; text-align: left; }
+.line .st:last-child[data-tip]::after { left: auto; right: 0; transform: none; text-align: right; }
+.settings .avl-card { grid-column: 1 / -1; }
+.settings .muted a { color: var(--text); font-weight: 600; text-decoration: underline; text-decoration-color: var(--border); text-underline-offset: 3px; }
