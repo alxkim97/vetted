@@ -224,7 +224,7 @@ function shell() {
           ${NAV.map(([v, label, ico, path]) => `<a class="pill${on === v ? ' on' : ''}" href="${pre()}${path || '/'}">${icon(ico, 17)}<span>${label}</span>${v === 'evaluations' ? `<b class="pill-n">${state.rows.length}</b>` : ''}</a>`).join('')}
         </nav>
         <div class="topnav-right">
-          ${ro ? `<span class="view-only">${icon('eye', 14)} View only</span>` : `${scanButton()}
+          ${ro ? `<button type="button" class="round-btn" data-act="theme-cycle" aria-label="Theme: ${state.prefs.theme}. Click to change" title="Theme: ${state.prefs.theme}. Click to change">${icon(state.prefs.theme === 'dark' ? 'moon' : 'sun', 18)}</button><span class="view-only">${icon('eye', 14)} View only</span>` : `${scanButton()}
           <a class="round-btn${state.view === 'settings' ? ' on' : ''}" href="#/settings" aria-label="Settings" title="Settings">${icon('settings', 18)}</a>`}
         </div>
       </header>
@@ -338,6 +338,7 @@ document.addEventListener('click', async e => {
       case 'export': closeMenu(); return exportCsv()
       case 'scan': return scan()
       case 'theme': savePrefs({ theme: value }); applyTheme(value); return render()
+      case 'theme-cycle': { const next = { system: 'light', light: 'dark', dark: 'system' }[state.prefs.theme] || 'light'; savePrefs({ theme: next }); applyTheme(next); return render() }
       case 'share-create': state.shares = [await createShare()]; return render()
       case 'share-copy': return copyText(viewLink(), 'View link copied')
       case 'avl-set': {

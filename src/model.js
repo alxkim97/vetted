@@ -1,6 +1,6 @@
 // Turns raw rows into what the views show: effective fields (file tracker
 // block over app value over scan guess), status, timeline and durations.
-import { STAGE_KEYS, stampToStages, suggestStamp } from '../lib/parse.js'
+import { STAGE_KEYS, stampToStages, suggestStamp, toIsoDate } from '../lib/parse.js'
 import { toEnglish } from '../lib/doc.js'
 
 // One status per evaluation, worked out from its stages and open requests
@@ -35,9 +35,11 @@ export const stageWord = (key, v) => {
 // stage waits for its Not-approved signature, an open data request means the
 // ball is with someone else (In progress), and anything else open is Alex's
 // move (Missing). A request for paperwork only (topic 'form') doesn't count.
-export function statusOf(s, { hasFile, hasVerdictLine, openData }) {
+// A failed stage normally waits for its signature. If the tracker says a request went
+// out after the fail (request_sent) and it is still open, the ball is with PU instead.
+export function statusOf(s, { hasFile, hasVerdictLine, openData, failOpen }) {
   if (s.outcome) return s.outcome
-  if (s.coa === 'fail' || s.docs === 'fail' || s.qc === 'not_approved') return 'fail'
+  if (s.coa === 'fail' || s.docs === 'fail' || s.qc === 'not_approved') return failOpen && openData ? 'in_progress' : 'fail'
   if (openData) return 'in_progress'
   if (!s.coa) return !hasFile ? 'awaiting' : hasVerdictLine ? 'untagged' : 'unreadable'
   return 'missing'
@@ -112,13 +114,23 @@ export function buildRows({ materials, evaluations, events }) {
     // Tracker blocks scanned before v0.6 only carry stamp:, so spell it out as stages.
     const t = { ...stampToStages(e.tracker?.stamp), ...(e.tracker || {}) }
     const m = matById[e.material_id]
-    const evs = (evByEval[e.id] || []).slice().sort((a, b) => a.event_date.localeCompare(b.event_date))
+    // A request noted in the tracker block (request_sent: yymmdd, optional request_asked:
+    // and request_to:) stands in for a timeline entry. It closes when documents arrive
+    // after it. Same-day stage entries keep their order: AVL, CoA, Docs, QC sample, Decision.
+    const evs0 = (evByEval[e.id] || []).slice()
+    const reqDate = t.request_sent ? toIsoDate(t.request_sent) : null
+    if (reqDate && !evs0.some(x => x.kind === 'docs_requested' && x.event_date === reqDate)) {
+      const reply = evs0.filter(x => x.kind === 'docs_received' && x.event_date > reqDate).map(x => x.event_date).sort()[0] || null
+      evs0.push({ id: `trk-${e.id}`, evaluation_id: e.id, kind: 'docs_requested', event_date: reqDate, party: t.request_to || 'PU', what: t.request_asked || null, note: null, topic: 'data', source: 'tracker', closed_on: reply })
+    }
+    const stageRank = x => x.kind === 'stage' ? 1 + ['avl', ...STAGE_KEYS].indexOf(x.what) : 0
+    const evs = evs0.sort((a, b) => a.event_date.localeCompare(b.event_date) || stageRank(a) - stageRank(b))
     // File tracker block over app column; before the v0.6 SQL, the old stamp column.
     const legacy = 'coa' in e ? {} : stampToStages(e.stamp)
     const stages = { avl: t.avl_listed ?? e.avl_listed ?? null }
     for (const k of STAGE_KEYS) stages[k] = k in t ? t[k] : e[k] ?? legacy[k] ?? null
     const open = evs.filter(x => x.kind === 'docs_requested' && !x.closed_on)
-    const status = statusOf(stages, { hasFile: !!e.file_name, hasVerdictLine: !!e.verdict_line, openData: open.some(x => x.topic !== 'form') })
+    const status = statusOf(stages, { hasFile: !!e.file_name, hasVerdictLine: !!e.verdict_line, openData: open.some(x => x.topic !== 'form'), failOpen: !!reqDate })
     const received = evs.filter(x => x.kind === 'docs_received')
     const firstDocs = received[0]?.event_date ?? null
     const verdictDate = t.verdict_date || evs.find(x => x.kind === 'verdict')?.event_date || e.first_rev_date || null
@@ -146,7 +158,9 @@ export function buildRows({ materials, evaluations, events }) {
       products: productsFor(m, e.grade),
       nextAction: t.next_action || e.next_action || null,
       fromFile: new Set(Object.keys(t)),
-      stages, status, nextStep: !stages.outcome && (stages.avl ?? e.avl_match?.listed) === true ? 'Already on the AVL: close the evaluation' : nextStep(stages),
+      stages, status, nextStep: !stages.outcome && (stages.avl ?? e.avl_match?.listed) === true ? 'Already on the AVL: close the evaluation'
+        : status === 'in_progress' && (stages.coa === 'fail' || stages.docs === 'fail' || stages.qc === 'not_approved') ? 'Failed, sent back to PU: follow up the reply, or close it Not approved'
+        : nextStep(stages),
       // The verdict line's own word, offered as a one-click CoA result or outcome.
       suggested: stages.coa || stages.outcome ? null : suggestStamp(e.verdict_line),
       verdictLine: e.verdict_line ? toEnglish(e.verdict_line) : null,

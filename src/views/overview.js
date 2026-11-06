@@ -59,7 +59,7 @@ function waitCard() {
           <div class="lrow wait-row" data-act="evaluation" data-id="${r.id}" tabindex="0">
             <span class="lmain"><b>${who(r)}</b><span>${esc(q.party || 'PU')} · ${q.topic === 'form' ? 'signed form · ' : ''}${esc(q.what || 'documents')} · asked ${fmtDate(q.event_date)}</span></span>
             <span class="wait w-${waitTone(q.days)}">${q.days} d</span>
-            ${readOnly() ? '' : `<button class="btn soft small" data-act="received" data-id="${q.id}">Mark received</button>`}
+            ${readOnly() || q.source === 'tracker' ? '' : `<button class="btn soft small" data-act="received" data-id="${q.id}">Mark received</button>`}
           </div>`).join('') : '<p class="empty">No open requests. Log one from an evaluation, or from a chat with <code>rm-log requested</code>.</p>'}
       </div>
       ${reqs.length > shown.length ? `<button class="more-link" data-act="chip-only" data-value="in_progress">${reqs.length - shown.length} more · see them all under Evaluations</button>` : ''}

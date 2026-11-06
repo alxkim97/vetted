@@ -144,7 +144,7 @@ function tracker(r) {
     <section class="tracker" aria-label="Where this evaluation is">
       <div class="line">${st}</div>
       <div class="holder">${holder}
-        ${ro ? '' : `<span class="holder-acts">${open.map(q => `<button class="btn soft small" data-act="received" data-id="${q.id}" title="${esc(q.what || '')}">Mark received${open.length > 1 ? ` · ${fmtDate(q.event_date)}` : ''}</button>`).join('')}
+        ${ro ? '' : `<span class="holder-acts">${open.filter(q => q.source !== 'tracker').map(q => `<button class="btn soft small" data-act="received" data-id="${q.id}" title="${esc(q.what || '')}">Mark received${open.length > 1 ? ` · ${fmtDate(q.event_date)}` : ''}</button>`).join('')}
           <button class="btn soft small" data-act="add-entry">${icon('plus', 14)} Add entry</button></span>`}
       </div>
     </section>`
@@ -344,7 +344,7 @@ function timelineTab(r) {
         ${ev.note ? `<div class="ev-note">${esc(ev.note)}</div>` : ''}
         ${thumbs(ev)}
       </div>
-      ${ro ? '' : `<div class="ev-acts">
+      ${ro || ev.source === 'tracker' ? '' : `<div class="ev-acts">
         <button class="icon-btn small" data-act="attach" data-id="${ev.id}" aria-label="Add image" title="Add evidence image">${icon('image', 15)}</button>
         ${ev.kind === 'docs_requested' && !ev.closed_on ? `<button class="btn soft small" data-act="received" data-id="${ev.id}">Received</button>` : ''}
         ${ev.source !== 'scan' ? `<button class="icon-btn small" data-act="del-ev" data-id="${ev.id}" aria-label="Delete">${icon('trash', 15)}</button>` : ''}
