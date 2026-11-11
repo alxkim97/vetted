@@ -443,3 +443,7 @@ html { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; }
   .view-evaluations .grid tbody tr.sel { background: color-mix(in srgb, var(--yellow) 20%, var(--surface)); }
   .view-evaluations .grid tbody tr:hover td { background: transparent; }
 }
+
+/* "In status" and "Waiting" show "21 d": keep the number and the d on one line, centred under the header. */
+.grid td.c-center { white-space: nowrap; }
+.grid td .days, .grid td .wait { white-space: nowrap; }
