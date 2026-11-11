@@ -398,3 +398,48 @@ button.st:hover::before { opacity: .9; }
 /* The page scrolls, not the grid, so header cells keep only their left pinning; a
    leftover top offset pushed the "#" cell 5px below the rest of its row. */
 .xl thead th, .xl thead .xl-rn, .xl thead .xl-corner { top: auto; }
+
+/* ── Phone and narrow screens ───────────────────────────────────────────────
+   Quick looks only: no zoom, nothing wider than the screen, and the evaluations
+   table becomes a list of cards with Material, Manufacturer, Status and days waiting. */
+html { touch-action: pan-x pan-y; -webkit-text-size-adjust: 100%; }
+
+@media (max-width: 859px) {
+  /* A table inside a box that scrolls sideways can't keep a sticky header: it landed on top of the first row. */
+  .view-evaluations .sheet > .grid thead th { position: static; top: auto; }
+}
+
+@media (max-width: 640px) {
+  html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+  .shell, .main, .content, .page-head, .topnav { min-width: 0; max-width: 100%; box-sizing: border-box; }
+  .topnav, .page-head, .content { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  input, select, textarea { font-size: 16px; } /* iOS zooms into smaller fields */
+  .search-box { min-width: 0; }
+
+  /* "By project": the name, the bar and the button stack and stay inside the card */
+  .pj { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .pj-bar { width: 100%; max-width: 100%; overflow: hidden; }
+  .pj-miss { max-width: 100%; justify-self: start; text-align: left; white-space: normal; }
+  .hcard, .hcard .list, .ne-wrap { min-width: 0; max-width: 100%; }
+
+  /* Evaluations: one card per row */
+  .view-evaluations .sheet { overflow: visible; border: 0; background: transparent; box-shadow: none; margin-top: 8px; }
+  .view-evaluations .grid, .view-evaluations .grid tbody { display: block; width: 100%; min-width: 0; }
+  .view-evaluations .grid thead { display: none; }
+  .view-evaluations .grid tbody tr[data-id] {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "mat status" "cand wait";
+    gap: 4px 12px; align-items: center; margin-bottom: 8px; padding: 12px 14px;
+    background: var(--surface); border-radius: 16px; border-left: 4px solid var(--c, var(--border-2)); cursor: pointer;
+  }
+  .view-evaluations .grid tbody tr.group { display: block; margin: 14px 4px 6px; }
+  .view-evaluations .grid tbody tr.group td { display: block; padding: 0; background: transparent; border: 0; }
+  .view-evaluations .grid td { display: none; padding: 0; border: 0; background: transparent; }
+  .view-evaluations .grid td.empty-row { display: block; padding: 18px 4px; }
+  .view-evaluations .grid td[data-col="material"] { display: block; grid-area: mat; font-size: 15px; min-width: 0; }
+  .view-evaluations .grid td[data-col="candidate"] { display: block; grid-area: cand; color: var(--text2); font-size: 13px; min-width: 0; overflow-wrap: anywhere; }
+  .view-evaluations .grid td[data-col="status"] { display: block; grid-area: status; justify-self: end; text-align: right; }
+  .view-evaluations .grid td[data-col="waiting"] { display: block; grid-area: wait; justify-self: end; text-align: right; }
+  .view-evaluations .grid td[data-col="waiting"]:has(.nil) { display: none; }
+  .view-evaluations .grid tbody tr.sel { background: color-mix(in srgb, var(--yellow) 20%, var(--surface)); }
+  .view-evaluations .grid tbody tr:hover td { background: transparent; }
+}

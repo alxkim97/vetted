@@ -174,7 +174,7 @@ export function renderEvaluations() {
       body += `<tr class="group"><td colspan="${cols.length + 1}">${g.head(r, rows.filter(x => g.key(x) === last))}</td></tr>`
     }
     body += `<tr class="t-${STATUS[r.status].tone}${i === state.sel ? ' sel' : ''}" data-act="evaluation" data-id="${r.id}" data-i="${i}" tabindex="-1">
-      <td class="rn">${++n}</td>${cols.map(c => `<td class="${c.cls || ''}">${c.cell(r)}</td>`).join('')}</tr>`
+      <td class="rn">${++n}</td>${cols.map(c => `<td class="${c.cls || ''}" data-col="${c.id}">${c.cell(r)}</td>`).join('')}</tr>`
   })
   return `
     ${toolbar()}

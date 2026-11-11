@@ -3,7 +3,7 @@
 //   npm run check -- "<material folder or candidate folder>"
 //   npm run check -- "Material A"      (name looked up under the evaluation root)
 //   add --json for machine-readable output
-import { readdirSync, existsSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, existsSync, statSync } from 'node:fs'
 import { join, resolve, basename, sep } from 'node:path'
 import { readAvl } from '../lib/avl.js'
 import { matchAvl } from '../lib/avl.js'
@@ -37,7 +37,8 @@ walk(materialDir, [])
 const onlyCand = rel.length > 1 ? candidates.filter(c => c.segs.join(sep).startsWith(rel.slice(1).join(sep))) : candidates
 
 // References live at the material level or at the grade level (the folder above the candidate).
-const refDirs = c => [join(materialDir, 'References'), ...c.segs.slice(0, -1).map((_, i) => join(materialDir, ...c.segs.slice(0, i + 1), 'References'))].filter(existsSync)
+// Every level counts: the material, each grade folder, and the candidate's own folder (HPMC keeps E15\References).
+const refDirs = c => [join(materialDir, 'References'), ...c.segs.map((_, i) => join(materialDir, ...c.segs.slice(0, i + 1), 'References'))].filter(existsSync)
 const pdfs = names => names.filter(n => /\.(pdf|png|jpe?g)$/i.test(n))
 const edition = n => (n.match(/\(((?:USP|BP|EP|JP|IP)[^)]*)\)/i) || [])[1] || null
 
@@ -45,7 +46,11 @@ const avl = readAvl()
 const report = { material: materialName, avl: avl ? { file: avl.file, date: avl.fileDate, rows: avl.rows.length } : null, candidates: [] }
 
 for (const c of onlyCand) {
-  const maker = c.segs[c.segs.length - 1]
+  // Flat folders have no candidate folder: take the name from the comparison file's tracker block, else the material.
+  const comparison0 = files(c.dir).filter(n => /CoA Comparison.*\.md$/i.test(n))
+  let tracked = null
+  for (const n of comparison0) { try { tracked = readFileSync(join(c.dir, n), 'utf8').match(/^(?:candidate|manufacturer):\s*(.+)$/m)?.[1]?.trim() || tracked } catch { /* unreadable: ignore */ } }
+  const maker = c.segs[c.segs.length - 1] || tracked || materialName
   const refs = refDirs(c)
   const apmCoa = refs.flatMap(r => ls(r).filter(e => e.isDirectory() && /apm\s*co[a]/i.test(e.name)).flatMap(e => pdfs(files(join(r, e.name)))))
   const incumbent = [...refs.flatMap(r => pdfs(files(r))), ...pdfs(files(c.dir))].filter(n => /incumbent/i.test(n))
@@ -65,7 +70,7 @@ const out = []
 out.push(`Material   ${report.material}`)
 out.push(avl ? `AVL file   ${basename(avl.file)}  (${avl.fileDate}, ${avl.rows.length} rows)` : 'AVL file   NOT REACHABLE (is Z: connected?)')
 for (const c of report.candidates) {
-  out.push('', `── ${c.maker}  (${c.path})`)
+  out.push('', `── ${c.maker}  (${c.path || 'flat folder'})`)
   const a = c.avl
   if (!a) out.push(`${ask}AVL         not checked`)
   else if (a.review) out.push(`${ask}AVL         close match, needs your confirmation: ${a.reason || ''}`)

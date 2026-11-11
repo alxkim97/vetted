@@ -14,7 +14,7 @@ const recentlyClosed = () => {
   return state.rows.filter(r => CLOSED.includes(r.status) && r.stageDates.outcome?.date >= from)
     .sort((a, b) => b.stageDates.outcome.date.localeCompare(a.stageDates.outcome.date))
 }
-const openRequests = () => state.rows.flatMap(r => r.openRequests.map(q => ({ r, q }))).sort((a, b) => b.q.days - a.q.days)
+const openRequests = () => state.rows.flatMap(r => r.openRequests.map(q => ({ r, q }))).sort((a, b) => a.q.days - b.q.days)
 
 export function overviewSummary() {
   const mine = state.rows.filter(r => YOUR_MOVE.includes(r.status)).length
@@ -53,7 +53,7 @@ function waitCard() {
   const shown = reqs.slice(0, 7)
   return `
     <section class="hcard waitc">
-      <div class="hcard-head"><h2>${icon('send', 18)} Waiting on others <span class="count">${reqs.length}</span></h2><span class="hsub">Oldest first · amber after 14 d, red after 28 d</span></div>
+      <div class="hcard-head"><h2>${icon('send', 18)} Waiting on others <span class="count">${reqs.length}</span></h2><span class="hsub">Newest first · amber after 14 d, red after 28 d</span></div>
       <div class="list">
         ${shown.length ? shown.map(({ r, q }) => `
           <div class="lrow wait-row" data-act="evaluation" data-id="${r.id}" tabindex="0">

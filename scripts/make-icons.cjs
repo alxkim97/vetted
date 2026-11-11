@@ -41,7 +41,10 @@ app.whenReady().then(async () => {
   out('public/icon-192.png', big.resize({ width: 192, height: 192, quality: 'best' }))
   const full = await render(win, bleed, 512)
   out('public/icon-maskable-512.png', full)
-  out('public/apple-touch-icon.png', full.resize({ width: 180, height: 180, quality: 'best' }))
+  // Home-screen icon: black with the yellow stamp. iOS dims a yellow tile to grey in dark mode;
+  // a black tile with a yellow mark reads the same in light and dark.
+  const apple = await render(win, bleed.replace('fill="#ffd60a"', 'fill="#0b0b0c"').replace('fill="#1c1c1e"', 'fill="#ffd60a"'), 512)
+  out('public/apple-touch-icon.png', apple.resize({ width: 180, height: 180, quality: 'best' }))
   const pngs = {}
   for (const s of [16, 24, 32, 48, 64, 128, 256]) pngs[s] = big.resize({ width: s, height: s, quality: 'best' }).toPNG()
   fs.mkdirSync(path.join(root, 'assets'), { recursive: true })
