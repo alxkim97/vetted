@@ -1,0 +1,68 @@
+/* v0.8: Reply to PU and Needs a look */
+
+/* Page head buttons (Overview) */
+.ph-acts { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+
+/* Amber count: something to look at */
+.badge.amber, .count.amber { background: var(--amber-weak); color: var(--amber); }
+.hcard-head .count.amber { background: var(--amber-weak); color: var(--amber); }
+.modal-head h2 .count { font: 700 12px var(--font); padding: 2px 8px; border-radius: 99px; vertical-align: 3px; margin-left: 4px; }
+
+/* Needs a look rows: status, what and why (wraps to two lines), a chevron */
+.look-row { grid-template-columns: 104px minmax(0, 1fr) 18px; align-items: start; }
+.look-row > .stamp { margin-top: 2px; }
+.look-row .lmain { gap: 1px; }
+.look-rule { font-style: normal; font-size: 11.5px; font-weight: 700; color: var(--amber); letter-spacing: .01em; }
+.look-row .lmain .look-why { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.45; }
+.look-go { color: var(--text3); align-self: center; display: grid; place-items: center; }
+.look-all .look-row .lmain .look-why { -webkit-line-clamp: unset; display: block; }
+.look-group { display: flex; flex-direction: column; gap: 4px; }
+.look-group h3 { font-size: 14px; font-weight: 750; display: flex; align-items: center; gap: 8px; margin: 6px 0 2px; }
+.look-group h3 .count { font: 700 11.5px var(--font); background: var(--surface-2); color: var(--text2); padding: 1px 7px; border-radius: 99px; }
+.look-modal .modal-body { padding-top: 4px; }
+
+/* Evaluation page: why this one is on the list */
+.look-banner { margin: 0; }
+.look-banner > div { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.look-banner p { margin: 0; }
+.look-banner em { font-style: normal; font-weight: 650; }
+.look-banner .note { margin-top: 2px; }
+
+/* Reply to PU: materials on the left, the draft on the right */
+.modal.reply-modal { width: min(1080px, 100%); height: min(88vh, 860px); }
+.reply-modal .modal-head > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.reply-modal .modal-head .note { font-size: 12.5px; }
+.modal-body.reply { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 18px; flex: 1; min-height: 0; overflow: hidden; padding-bottom: 12px; }
+.rp-pick, .rp-draft { display: flex; flex-direction: column; gap: 10px; min-height: 0; min-width: 0; }
+.rp-search { flex: none; max-width: none; min-width: 0; width: 100%; background: var(--surface-2); }
+.rp-list { overflow: auto; min-height: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; margin: 0 -6px; padding: 0 6px; }
+.rp-sep { margin: 10px 4px 4px; font-size: 11.5px; font-weight: 700; color: var(--text3); text-transform: uppercase; letter-spacing: .05em; }
+.rp-mat { border-radius: 14px; }
+.rp-mat.on { background: var(--surface-2); }
+.rp-row { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px; cursor: pointer; }
+.rp-row:hover { background: var(--surface-2); }
+.rp-mat input[type="checkbox"] { width: 17px; height: 17px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.rp-name { display: flex; flex-direction: column; min-width: 0; }
+.rp-name b { font-weight: 650; font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-name small { font-size: 12px; color: var(--text3); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-pills { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; max-width: 140px; }
+.rp-pills .stamp, .rp-cand .stamp { font-size: 10.5px; padding: 1px 7px; min-width: 0; }
+.rp-cands { display: flex; flex-direction: column; padding: 0 10px 8px 40px; gap: 2px; }
+.rp-cand { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 8px; align-items: center; font-size: 12.5px; padding: 4px 0; cursor: pointer; }
+.rp-cand span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rp-draft .field input { background: var(--surface-2); }
+.rp-text-field { flex: 1; min-height: 0; }
+.rp-draft textarea.thai { flex: 1; min-height: 240px; resize: none; border: 0; outline: 0; width: 100%; font-weight: 450; }
+.rp-draft textarea.thai:focus { box-shadow: 0 0 0 2px var(--accent); }
+.reply-modal .modal-foot .row-end { align-items: center; }
+
+/* Phone: one column, the list above the draft, both scroll inside the sheet */
+@media (max-width: 859px) {
+  .modal.reply-modal { height: 92vh; }
+  .modal-body.reply { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(150px, 38%) minmax(0, 1fr); overflow: hidden; }
+  .rp-draft textarea.thai { min-height: 160px; }
+  .reply-modal .modal-head .note { display: none; }
+  .look-row { grid-template-columns: minmax(0, 1fr) 18px; }
+  .look-row > .stamp { display: none; }
+  .ph-acts { margin-left: 0; }
+}

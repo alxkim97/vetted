@@ -5,6 +5,7 @@ import { state, savePrefs, CHIPS, inToolbar, matches, activeFilters, companies, 
 import { STATUS, PROJECTS, fmtDate, waitTone, productNames, daysBetween, todayIso } from '../model.js'
 import { esc, icon } from '../ui.js'
 import { pill, miniLine } from '../parts.js'
+import { replyButton, lookButton } from './tools.js'
 
 const dash = '<span class="nil">—</span>'
 const stationIdx = r => r.stations.findIndex(s => s.state === 'now')
@@ -144,6 +145,7 @@ function toolbar() {
       </div>
       <label class="search"><span class="search-ico">${icon('search', 16)}</span><input type="search" id="search-input" placeholder="Search material, company, item code" value="${esc(f.q)}" autocomplete="off"><span class="kbd" aria-hidden="true">/</span></label>
       <div class="tb-right">
+        ${replyButton()}${lookButton()}
         <button class="btn surface" data-menu="filters">${icon('filter', 15)} Filters${nFilters ? ` <span class="badge">${nFilters}</span>` : ''} ${icon('chevDown', 14)}</button>
         <button class="btn surface" data-menu="view">${icon('columns', 15)} View ${icon('chevDown', 14)}</button>
         <button class="btn surface" data-menu="export">${icon('download', 15)} Export ${icon('chevDown', 14)}</button>

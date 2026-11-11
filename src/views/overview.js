@@ -4,6 +4,10 @@ import { state, YOUR_MOVE, CLOSED, readOnly } from '../store.js'
 import { STATUS, EVENT_KINDS, PROJECTS, STATIONS, fmtDate, todayIso, daysBetween, waitTone, notEvaluated } from '../model.js'
 import { esc, icon } from '../ui.js'
 import { pill, who } from '../parts.js'
+import { lookCard, replyButton } from './tools.js'
+
+// Buttons at the right of the page head.
+export const overviewActions = () => readOnly() ? '' : `<div class="ph-acts">${replyButton()}</div>`
 
 const DAY = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const MONTH = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -242,5 +246,5 @@ function notEvaluatedList(project) {
 
 export function renderOverview() {
   // Two independent columns, so a long card on one side doesn't leave a hole on the other.
-  return `<div class="ov"><div class="ov-col">${moveCard()}${closedCard()}${turnCard()}</div><div class="ov-col">${waitCard()}${weekCard()}</div>${projectsCard()}</div>`
+  return `<div class="ov"><div class="ov-col">${moveCard()}${lookCard()}${closedCard()}${turnCard()}</div><div class="ov-col">${waitCard()}${weekCard()}</div>${projectsCard()}</div>`
 }

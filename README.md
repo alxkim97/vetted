@@ -44,6 +44,12 @@ Raw Material Evaluation Document\ ──(lib/scanner.js: desktop Re-scan, daily 
   its tabs and all editing. `edits.js` makes every change and records it for undo/redo
   (`undo.js`). `handoff.js` writes the chat prompt and the Thai PU message; `print.js` the
   status list and one-page PDFs.
+- v0.8 tools (`views/tools.js`): **Reply to PU** ticks materials and drafts the Thai status
+  reply to a PU follow-up (`reply.js`, golden form example 6) to copy into LINE; nothing is sent.
+  **Needs a look** (`health.js`) checks each evaluation against its tracker block and dated
+  Document folders (estimated decision date vs a signed form, Approved with docs missing, Not
+  approved with an open request, request text vs `request_asked`, `request_sent` with nothing
+  open, no tracker block). Read-only: it reports, fixing is by hand.
 - Addresses: `#/`, `#/evaluations`, `#/e/<first 8 of the id>[/tab]`, `#/settings`. A manager's
   view link is the same behind `#/v/<token>/`, read through `api/view.js` (Vercel) with the
   service key on the server; the browser gets no key that can write.

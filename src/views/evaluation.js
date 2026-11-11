@@ -11,6 +11,7 @@ import { COLUMN, setStage, saveFields, addEntry, deleteEntry, addImages, deleteI
 import { evidenceUrls, fileUrl } from '../data.js'
 import { chatPrompt, puMessage, facts, DEFAULT_ROOT } from '../handoff.js'
 import { printEvaluation } from '../print.js'
+import { lookPanel } from './tools.js'
 
 const isDesktop = () => !!window.electronAPI?.isElectron
 const TONE_LABEL = { fail: 'Fail', missing: 'Missing', confirm: 'Confirm', pending: 'Pending', pass: 'Pass', na: 'N/A' }
@@ -222,6 +223,7 @@ function summaryTab(r, doc) {
   return `
     <div class="sum">
       <div class="col">
+        ${lookPanel(r)}
         ${verdict ? `<div class="verdict"><small>Verdict${r.rev != null ? ` · R.${r.rev}` : ''}</small>${md(verdict)}</div>` : `<div class="verdict muted">${r.fileName ? 'No verdict line in this file (older format, verdict only in the count table).' : 'No comparison file yet.'}</div>`}
         ${!ro && r.suggested ? `<div class="suggest">${icon('sparkle', 16)} The verdict line says <b>${esc(SUGGEST[r.suggested])}</b>. <button class="btn soft small" data-act="accept-suggest" data-value="${r.suggested}">Use it</button></div>` : ''}
         ${t ? `<div class="tiles">

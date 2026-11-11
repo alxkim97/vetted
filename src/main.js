@@ -3,13 +3,15 @@ import './register.css'
 import './apple.css'
 import './evaluation.css'
 import './v7.css'
+import './tools.css'
 import './busy.js'
 import { isConfigured } from './config.js'
 import { getSession, onAuthChange, isMember, fetchAll, runScan, signOut, fetchDoc, fetchGlossary, fetchShares, createShare, revokeShare, fetchView, fetchViewDoc, purgeFiles } from './data.js'
 import { state, savePrefs, setData, cacheData, restoreCache, clearCache, readOnly, rebuild } from './store.js'
 import { esc, icon, toast, closeTopModal, modalOpen, openMenu, closeMenu, copyText } from './ui.js'
 import { renderAuth, renderNotMember, renderNoTables } from './views/auth.js'
-import { renderOverview, overviewSummary } from './views/overview.js'
+import { renderOverview, overviewSummary, overviewActions } from './views/overview.js'
+import { openReply, openHealth } from './views/tools.js'
 import { renderEvaluations, visibleRows, exportCsv, filtersMenuHtml, viewMenuItems, colFilterMenuHtml, setShown, columnOrder } from './views/evaluations.js'
 import { renderEvaluation, evalAction, evalChange, evalSubmit, evalPaste, evalDrop, stageMenu, handoffMenu, copyPromptFor, hooks as evalHooks, TAB_IDS } from './views/evaluation.js'
 import { renderSettings, scanSummary } from './views/settings.js'
@@ -199,7 +201,7 @@ function pageHead() {
   if (state.view === 'evaluation' || state.view === 'evaluations') return ''
   if (state.view === 'overview') {
     const d = new Date(todayIso() + 'T00:00:00')
-    return `<div class="page-head"><div><h1>${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</h1><p>${esc(overviewSummary())}</p></div></div>`
+    return `<div class="page-head"><div><h1>${d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</h1><p>${esc(overviewSummary())}</p></div>${overviewActions()}</div>`
   }
   return `<div class="page-head"><div><h1>Settings</h1></div></div>`
 }
@@ -298,6 +300,8 @@ document.addEventListener('click', async e => {
     switch (act) {
       case 'evaluation': return go(`/e/${id.slice(0, 8)}`)
       case 'go-pu': state.openPu = true; return go(`/e/${id.slice(0, 8)}`)
+      case 'reply-pu': if (!readOnly()) openReply(); return
+      case 'health-all': if (!readOnly()) openHealth(); return
       case 'copy-prompt': {
         const r = state.rows.find(x => x.id === id)
         if (!state.docs[id]) await loadDoc(id)
