@@ -5,7 +5,7 @@ import { state, savePrefs, CHIPS, inToolbar, matches, activeFilters, companies, 
 import { STATUS, PROJECTS, fmtDate, waitTone, productNames, daysBetween, todayIso } from '../model.js'
 import { esc, icon } from '../ui.js'
 import { pill, miniLine } from '../parts.js'
-import { replyButton, lookButton } from './tools.js'
+import { replyButton, lookButton, toolsButton } from './tools.js'
 
 const dash = '<span class="nil">—</span>'
 const stationIdx = r => r.stations.findIndex(s => s.state === 'now')
@@ -143,12 +143,12 @@ function toolbar() {
       <div class="chips5" role="group" aria-label="Status">
         ${CHIPS.map(([k, label, tone, statuses]) => `<button class="schip t-${tone}${f.chips.includes(k) ? ' on' : ''}" data-act="chip" data-value="${k}" aria-pressed="${f.chips.includes(k)}"><i></i>${label} <b>${base.filter(r => statuses.includes(r.status)).length}</b></button>`).join('')}
       </div>
-      <label class="search"><span class="search-ico">${icon('search', 16)}</span><input type="search" id="search-input" placeholder="Search material, company, item code" value="${esc(f.q)}" autocomplete="off"><span class="kbd" aria-hidden="true">/</span></label>
       <div class="tb-right">
         ${replyButton()}${lookButton()}
-        <button class="btn surface" data-menu="filters">${icon('filter', 15)} Filters${nFilters ? ` <span class="badge">${nFilters}</span>` : ''} ${icon('chevDown', 14)}</button>
-        <button class="btn surface" data-menu="view">${icon('columns', 15)} View ${icon('chevDown', 14)}</button>
-        <button class="btn surface" data-menu="export">${icon('download', 15)} Export ${icon('chevDown', 14)}</button>
+        <button class="btn surface" data-menu="filters" title="Filters">${icon('filter', 15)}<span class="lab"> Filters</span>${nFilters ? ` <span class="badge">${nFilters}</span>` : ''} ${icon('chevDown', 14)}</button>
+        <button class="btn surface" data-menu="view" title="View">${icon('columns', 15)}<span class="lab"> View</span> ${icon('chevDown', 14)}</button>
+        <button class="btn surface" data-menu="export" title="Export">${icon('download', 15)}<span class="lab"> Export</span> ${icon('chevDown', 14)}</button>
+        ${toolsButton()}
       </div>
     </div>
     ${pills.length ? `<div class="active-filters"><span>Showing only</span>${pills.join('')}</div>` : ''}`

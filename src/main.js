@@ -12,7 +12,7 @@ import { state, savePrefs, setData, cacheData, restoreCache, clearCache, readOnl
 import { esc, icon, toast, closeTopModal, modalOpen, openMenu, closeMenu, copyText } from './ui.js'
 import { renderAuth, renderNotMember, renderNoTables } from './views/auth.js'
 import { renderOverview, overviewSummary, overviewActions } from './views/overview.js'
-import { openReply, openHealth } from './views/tools.js'
+import { openReply, openHealth, toolsMenuItems } from './views/tools.js'
 import { renderEvaluations, visibleRows, exportCsv, filtersMenuHtml, viewMenuItems, colFilterMenuHtml, setShown, columnOrder } from './views/evaluations.js'
 import { renderEvaluation, evalAction, evalChange, evalSubmit, evalPaste, evalDrop, stageMenu, handoffMenu, copyPromptFor, hooks as evalHooks, TAB_IDS } from './views/evaluation.js'
 import { renderSettings, scanSummary } from './views/settings.js'
@@ -187,10 +187,14 @@ function scanButton() {
   const failed = run?.ok === false
   const when = run?.finished_at || run?.started_at
   const text = state.scanning ? 'Scanning…' : failed ? 'Scan failed' : when ? `Scanned ${timeAgo(when)}` : 'Never scanned'
+  const short = state.scanning ? '…' : failed ? 'Failed' : when ? timeAgo(when).replace(/ ago$/, '').replace('just now', 'now') : 'Never'
+  const label = `<span class="scan-long">${text}</span><span class="scan-short">${short}</span>`
   return isDesktop
-    ? `<button class="scan-pill${state.scanning ? ' spinning' : ''}${failed ? ' failed' : ''}" data-act="scan" title="${esc(scanSummary(run))}" ${state.scanning ? 'disabled' : ''}>${icon('sync', 16)}<span>${text}</span></button>`
-    : `<span class="scan-pill static${failed ? ' failed' : ''}" title="${esc(scanSummary(run))}">${icon('clock', 16)}<span>${text}</span></span>`
+    ? `<button class="scan-pill${state.scanning ? ' spinning' : ''}${failed ? ' failed' : ''}" data-act="scan" title="${esc(scanSummary(run))}" ${state.scanning ? 'disabled' : ''}>${icon('sync', 16)}${label}</button>`
+    : `<span class="scan-pill static${failed ? ' failed' : ''}" title="${esc(scanSummary(run))}">${icon('clock', 16)}${label}</span>`
 }
+// Search sits in the header on every page (v0.11); typing anywhere else opens Evaluations.
+const headerSearch = () => `<label class="search hsearch${state.filter.q ? ' has-q' : ''}" title="Search ( / )"><span class="search-ico">${icon('search', 16)}</span><input type="search" id="search-input" placeholder="Search material, company, item code" value="${esc(state.filter.q)}" autocomplete="off" aria-label="Search material, company, item code"><span class="kbd" aria-hidden="true">/</span></label>`
 function timeAgo(iso) {
   const m = Math.round((Date.now() - new Date(iso)) / 60000)
   if (m < 1) return 'just now'
@@ -229,6 +233,7 @@ function shell() {
           ${NAV.map(([v, label, ico, path]) => `<a class="pill${on === v ? ' on' : ''}" href="${pre()}${path || '/'}">${icon(ico, 17)}<span>${label}</span>${v === 'evaluations' ? `<b class="pill-n">${state.rows.length}</b>` : ''}</a>`).join('')}
         </nav>
         <div class="topnav-right">
+          ${headerSearch()}
           ${ro ? `<button type="button" class="round-btn" data-act="theme-cycle" aria-label="Theme: ${state.prefs.theme}. Click to change" title="Theme: ${state.prefs.theme}. Click to change">${icon(state.prefs.theme === 'dark' ? 'moon' : 'sun', 18)}</button><span class="view-only">${icon('eye', 14)} View only</span>` : `${scanButton()}
           <a class="round-btn${state.view === 'settings' ? ' on' : ''}" href="#/settings" aria-label="Settings" title="Settings">${icon('settings', 18)}</a>`}
         </div>
@@ -276,7 +281,9 @@ root.addEventListener('toggle', e => {
 }, true)
 
 // Re-open a dropdown after its contents changed (column toggles, filters).
-const reopen = (sel, fn) => { closeMenu(); const a = document.querySelector(`[data-menu="${sel}"]`); if (a) fn(a) }
+// A menu reopens on the button you can see (on a phone that's Tools).
+const visible = sel => [...document.querySelectorAll(`[data-menu="${sel}"]`)].find(a => a.offsetParent)
+const reopen = (sel, fn) => { closeMenu(); const a = visible(sel) || visible('tools'); if (a) fn(a) }
 const openFilters = a => openMenu(a, [], { html: filtersMenuHtml(), align: 'right' })
 const openView = a => openMenu(a, viewMenuItems(), { align: 'right' })
 const openColf = id => a => openMenu(a, [], { html: colFilterMenuHtml(id) })
@@ -287,6 +294,7 @@ function menuFor(el) {
   if (m === 'view') return openView(el)
   if (m === 'export') return openMenu(el, [{ label: 'Status list PDF', act: 'print-list', hint: 'Same table as the RM Evaluation Status List' }, { label: 'CSV for Excel', act: 'export', hint: 'The rows on screen, every column' }], { align: 'right' })
   if (m === 'handoff') return handoffMenu(el)
+  if (m === 'tools') return openMenu(el, toolsMenuItems(), { align: 'right' })
   if (m.startsWith('colf-')) return openColf(m.slice(5))(el)
   if (m.startsWith('stage-')) return stageMenu(el, m.slice(6))
 }
@@ -343,6 +351,8 @@ document.addEventListener('click', async e => {
       case 'issues-only': savePrefs({ issuesOnly: value === '1' }); return render()
       case 'print-list': closeMenu(); return printStatusList(visibleRows())
       case 'export': closeMenu(); return exportCsv()
+      case 'menu-filters': return reopen('filters', openFilters)
+      case 'menu-view': return reopen('view', openView)
       case 'scan': return scan()
       case 'theme': savePrefs({ theme: value }); applyTheme(value); return render()
       case 'theme-cycle': { const next = { system: 'light', light: 'dark', dark: 'system' }[state.prefs.theme] || 'light'; savePrefs({ theme: next }); applyTheme(next); return render() }
@@ -402,6 +412,7 @@ document.addEventListener('input', e => {
   if (e.target.id !== 'search-input') return
   state.filter.q = e.target.value
   state.sel = -1
+  if (state.view !== 'evaluations' && state.filter.q) { go('/evaluations'); return }
   clearTimeout(searchTimer)
   searchTimer = setTimeout(render, 120)
 })
@@ -424,7 +435,7 @@ document.addEventListener('keydown', e => {
     if ((k === 'z' && e.shiftKey) || k === 'y') { e.preventDefault(); return redo() }
   }
   if (typing || e.ctrlKey || e.metaKey || e.altKey) return
-  if (e.key === '/') { e.preventDefault(); if (state.view !== 'evaluations') go('/evaluations'); return setTimeout(() => document.querySelector('#search-input')?.focus(), 30) }
+  if (e.key === '/') { e.preventDefault(); return document.querySelector('#search-input')?.focus() }
   if (e.key === '1') return go('/')
   if (e.key === '2') return go('/evaluations')
   if (state.view === 'evaluations' && ['ArrowDown', 'ArrowUp', 'Enter'].includes(e.key)) {

@@ -120,3 +120,41 @@
 .dmy-cal { position: absolute; right: 6px; top: 50%; transform: translateY(-50%); width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--text2); display: grid; place-items: center; cursor: pointer; }
 .dmy-cal:hover { background: var(--surface-3, rgba(127,127,127,.12)); color: var(--text); }
 .dmy .dmy-native { position: absolute; right: 6px; bottom: 0; width: 30px; height: 1px; opacity: 0; pointer-events: none; padding: 0; border: 0; }
+
+/* -- v0.11 top bar: one row for the header, one for the Evaluations toolbar -- */
+.topnav { flex-wrap: nowrap; }
+.topnav .pills { flex-wrap: nowrap; }
+.topnav-right { min-width: 0; }
+.hsearch { flex: 0 1 auto; width: clamp(220px, 24vw, 320px); min-width: 0; max-width: none; }
+.hsearch .kbd { flex: 0 0 auto; }
+.scan-short { display: none; }
+.view-evaluations .toolbar { flex-wrap: nowrap; }
+.toolbar .chips5 { flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+.toolbar .chips5::-webkit-scrollbar { display: none; }
+.toolbar .schip { flex: 0 0 auto; }
+.tb-right { flex: 0 0 auto; flex-wrap: nowrap; }
+.tb-tools { display: none; }
+/* Labels go before any status chip is cut off: the chips are the main filter. */
+@media (max-width: 1520px) { .tb-right .lab { display: none; } }
+@media (max-width: 1000px) { .tb-right .lab-look { display: none; } }
+@media (max-width: 1180px) { .scan-long { display: none; } .scan-short { display: inline; } }
+/* The word Vetted goes first when space runs short; the stamp mark stays. */
+@media (max-width: 1000px) { .topnav .brand > span:last-child { display: none; } }
+@media (max-width: 859px) {
+  .topnav { flex-wrap: nowrap; gap: 6px; position: relative; }
+  .topnav .pills { order: 0; width: auto; overflow: visible; gap: 6px; }
+  .topnav .pill { padding: 0 12px; }
+  /* The page you are on keeps its name; the other shows its icon only. */
+  .topnav .pill:not(.on) > span { display: none; }
+  .topnav .pill:not(.on) { width: 40px; padding: 0; justify-content: center; }
+  .topnav-right { gap: 6px; }
+  .topnav .scan-pill { display: none; }
+  /* Search is an icon until you tap it, then it opens across the header. */
+  .hsearch { width: 40px; height: 40px; padding: 0; justify-content: center; flex: 0 0 auto; cursor: pointer; }
+  .hsearch .kbd { display: none; }
+  .hsearch input { width: 0; min-width: 0; flex: 0 0 0; padding: 0; opacity: 0; }
+  .hsearch:focus-within, .hsearch.has-q { position: absolute; left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px)); width: auto; padding: 0 14px; justify-content: flex-start; z-index: 30; }
+  .hsearch:focus-within input, .hsearch.has-q input { width: auto; flex: 1 1 auto; opacity: 1; }
+  .tb-right > .btn:not(.tb-tools) { display: none; }
+  .tb-tools { display: inline-flex; }
+}

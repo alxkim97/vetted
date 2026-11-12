@@ -62,6 +62,10 @@ Raw Material Evaluation Document\ ──(lib/scanner.js: desktop Re-scan, daily 
   Selection Form scan whose name carries the current verdict word dates the stage (`model.js`
   `formStageDates`), beating the revision-date estimate; a date set by hand or a tracker
   `verdict_date` still wins.
+- v0.11: **one-row top bar**. Search moved into the header (every page; typing elsewhere opens
+  Evaluations). The toolbar is chips + actions on one line: button labels drop below 1520 px, the
+  scan time shortens below 1180, the word Vetted hides below 1000. On a phone the other page
+  shows its icon only, search opens across the header, and the actions fold into one Tools menu.
 - Addresses: `#/`, `#/evaluations`, `#/e/<first 8 of the id>[/tab]`, `#/settings`. A manager's
   view link is the same behind `#/v/<token>/`, read through `api/view.js` (Vercel) with the
   service key on the server; the browser gets no key that can write.

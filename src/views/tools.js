@@ -131,7 +131,7 @@ const lookRow = x => `
 export function lookButton() {
   if (readOnly()) return ''
   const n = healthList().length
-  return `<button class="btn surface" data-act="health-all">${icon('eye', 15)} Needs a look${n ? ` <span class="badge amber">${n}</span>` : ''}</button>`
+  return `<button class="btn surface" data-act="health-all" title="Needs a look">${icon('eye', 15)}<span class="lab-look"> Needs a look</span>${n ? ` <span class="badge amber">${n}</span>` : ''}</button>`
 }
 
 export function lookCard() {
@@ -181,7 +181,21 @@ export function openHealth() {
 // ── Reply to PU ──
 export function replyButton() {
   if (readOnly()) return ''
-  return `<button class="btn surface" data-act="reply-pu">${icon('message', 15)} Reply to PU</button>`
+  return `<button class="btn surface" data-act="reply-pu" title="Reply to PU">${icon('message', 15)}<span class="lab"> Reply to PU</span></button>`
+}
+
+// On a phone the toolbar's buttons fold into one Tools button with this menu.
+export function toolsButton() {
+  const n = readOnly() ? 0 : healthList().length
+  return `<button class="btn surface tb-tools" data-menu="tools" aria-label="Tools" title="Tools">${icon('sliders', 16)}${n ? ` <span class="badge amber">${n}</span>` : ''}</button>`
+}
+export function toolsMenuItems() {
+  const n = readOnly() ? 0 : healthList().length
+  return [
+    ...(readOnly() ? [] : [{ label: 'Reply to PU', act: 'reply-pu' }, { label: 'Needs a look', act: 'health-all', hint: n ? `${n} to check` : 'Nothing to check' }, { sep: true }]),
+    { label: 'Filters…', act: 'menu-filters' }, { label: 'View…', act: 'menu-view' }, { sep: true },
+    { label: 'Status list PDF', act: 'print-list' }, { label: 'CSV for Excel', act: 'export' },
+  ]
 }
 
 // Candidates ticked by default: the open ones, and any closed in the last 30 days;
