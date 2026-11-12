@@ -13,6 +13,7 @@ import { chatPrompt, puMessage, facts, DEFAULT_ROOT } from '../handoff.js'
 import { printEvaluation } from '../print.js'
 import { lookPanel, formDialog, sentDialog, dateField, expiryWord } from './tools.js'
 import { signedFormFor } from '../health.js'
+import { dmyInput } from '../dateInput.js'
 
 const isDesktop = () => !!window.electronAPI?.isElectron
 const TONE_LABEL = { fail: 'Fail', missing: 'Missing', confirm: 'Confirm', pending: 'Pending', pass: 'Pass', na: 'N/A' }
@@ -346,7 +347,7 @@ function timelineTab(r) {
   const form = ui.adding && !ro ? `<form class="add-event panel" data-form="event">
     <div class="choice">${Object.entries(EVENT_KINDS).filter(([x]) => x !== 'stage').map(([x, v]) => `<label class="choice-item"><input type="radio" name="kind" value="${x}" ${k === x ? 'checked' : ''}><span>${icon(v.icon, 14)} ${v.label}</span></label>`).join('')}</div>
     <div class="field-row">
-      <label class="field" style="flex:0 0 160px">Date<input name="event_date" type="date" value="${todayIso()}" required></label>
+      <label class="field" style="flex:0 0 170px">Date${dmyInput('event_date', todayIso())}</label>
       <label class="field">${k === 'message_sent' ? 'To' : k === 'docs_received' ? 'From' : 'Who'}<input name="party" placeholder="${k === 'docs_received' ? 'PU, supplier…' : 'PU, K. Am, QA manager…'}"></label>
       <label class="field">${k === 'verdict' ? 'Verdict' : 'Documents'}<input name="what" placeholder="${k === 'verdict' ? 'Missing: GMP certificate' : 'GMP, MSDS, 50 g sample'}"></label>
     </div>

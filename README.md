@@ -57,6 +57,11 @@ Raw Material Evaluation Document\ ──(lib/scanner.js: desktop Re-scan, daily 
   message (and, from a result message, its requests) with the LINE screenshot in one step; a
   multi-material reply logs on every evaluation, one image copy each. **Decision date** can be
   set from the Decision station.
+- v0.10: date fields always read **dd-mm-yyyy** whatever the PC locale (`dateInput.js`: text field +
+  hidden native picker). **CoA and Docs dates from the signed form**: the first reviewer-annotated
+  Selection Form scan whose name carries the current verdict word dates the stage (`model.js`
+  `formStageDates`), beating the revision-date estimate; a date set by hand or a tracker
+  `verdict_date` still wins.
 - Addresses: `#/`, `#/evaluations`, `#/e/<first 8 of the id>[/tab]`, `#/settings`. A manager's
   view link is the same behind `#/v/<token>/`, read through `api/view.js` (Vercel) with the
   service key on the server; the browser gets no key that can write.

@@ -104,8 +104,10 @@ export const cleanSupplier = s => {
   return /[A-Za-z]/.test(t) ? t : String(s).trim()
 }
 
-export function buildRows({ materials, evaluations, events }) {
+export function buildRows({ materials, evaluations, events, files = [] }) {
   const today = todayIso()
+  const formsByEval = {}
+  for (const x of files || []) if (x.evaluation_id && x.doc_date && isAnnotatedForm(x.name)) (formsByEval[x.evaluation_id] ||= []).push(x)
   const matById = Object.fromEntries(materials.map(m => [m.id, m]))
   const evByEval = {}
   for (const ev of events) if (ev.evaluation_id) (evByEval[ev.evaluation_id] ||= []).push(ev)
@@ -138,7 +140,7 @@ export function buildRows({ materials, evaluations, events }) {
     const messages = evs.filter(x => x.kind === 'message_sent')
     const dates = [e.rev_date, ...evs.map(x => x.event_date)].filter(Boolean).sort()
     const openData = open.filter(x => x.topic !== 'form')
-    const sd = stageDates(stages, evs, { verdictDate, verdictExact: !!t.verdict_date, revDate: e.rev_date, firstDocs, last: dates[dates.length - 1] ?? null })
+    const sd = stageDates(stages, evs, { verdictDate, verdictExact: !!t.verdict_date, revDate: e.rev_date, firstRevDate: e.first_rev_date, firstDocs, last: dates[dates.length - 1] ?? null, forms: formsByEval[e.id] || [] })
     const auto = autoStages(stages, e, { firstDocs })
     const stations = stationsOf(stages, sd, { hasFile: !!e.file_name, firstDocs, today, auto })
     const since = statusSince(status, sd, stations, { openData, firstDocs, revDate: e.rev_date })
@@ -236,9 +238,14 @@ export function stageDates(stages, evs, b) {
   for (const k of ['avl', ...STAGE_KEYS]) out[k] = stages[k] == null ? null : logged(k)
   const coaDate = b.verdictDate || b.revDate
   if (stages.coa != null && !out.coa && coaDate) out.coa = { date: coaDate, est: !b.verdictExact }
+  // A stage passes on the day Alex's signed Selection Form comes back as a scan
+  // (Alex, 261112): that date beats any estimate, never a date set by hand.
+  const fd = formStageDates(b.forms || [], stages, { from: b.firstRevDate || b.revDate, revDate: b.revDate })
+  if (fd.coa && out.coa?.est) out.coa = { date: fd.coa, est: false, form: true }
   if (stages.avl != null && !out.avl && (out.coa || b.firstDocs)) out.avl = { date: out.coa?.date || b.firstDocs, est: true }
   const closedReqs = evs.filter(x => x.kind === 'docs_requested' && x.closed_on && x.topic !== 'form').map(x => x.closed_on)
   const received = evs.filter(x => x.kind === 'docs_received').map(x => x.event_date)
+  if (stages.docs != null && (!out.docs || out.docs.est) && fd.docs && fd.docs >= (out.coa?.date || '')) out.docs = { date: fd.docs, est: false, form: true }
   if (stages.docs != null && !out.docs) {
     const d = latest(closedReqs, out.coa?.date) || latest(received, out.coa?.date) || b.revDate || out.coa?.date
     if (d) out.docs = { date: d, est: true }
@@ -249,6 +256,43 @@ export function stageDates(stages, evs, b) {
   }
   if (stages.outcome != null && !out.outcome && b.last) out.outcome = { date: b.last, est: true }
   return out
+}
+
+// ── Signed Selection Forms ───────────────────────────────────────────────
+// Alex's reviewed form comes back as a scan named "… (Reviewer Annotated - ผ่าน)",
+// "… (Signed - Approved …)" and the like; "Unsigned" never counts.
+export const isAnnotatedForm = name => /selection forms?\b/i.test(name) && !/\bunsigned\b/i.test(name) &&
+  (/reviewer annotated/i.test(name) || /(?<!un)signed\b/i.test(name) || /\b(approved|rejected)\b/i.test(name))
+// The annotation: what follows "Reviewer Annotated" / "Signed" inside the brackets.
+const noteOf = name => (name.match(/(?:reviewer annotated|signed)\s*-?\s*([^)]*)/i)?.[1] || '')
+const WORDS = {
+  pass: /\bpass\b|ผ่าน|(?<!not )\bapproved\b/i,
+  gap: /ขาด|\bmissing\b|\bconfirm\b|\brequested\b/i,
+  fail: /ไม่ผ่าน|\bfail(ed)?\b|\bnot approved\b|\brejected\b/i,
+}
+const DOC_WORDS = /\b(gmp|iso|msds|sds|fssc|halal|dmf|licen[cs]e|certificates?|docs?)\b|เอกสาร/i
+// Dates for the CoA and Docs stages from the forms (YYYY-MM-DD, or null).
+// CoA: the first form from the evaluation's start whose note says the current
+// verdict (no verdict word, no date: a bare "Reviewer Annotated" pack may be a
+// later document review). Docs: only once the CoA form is found, a
+// later form, or the same one when its note covers the documents too
+// ("CoA and GMP ผ่าน"); a form whose note is about the CoA only doesn't count.
+export function formStageDates(forms, stages, { from, revDate } = {}) {
+  const list = forms.filter(x => x.doc_date && isAnnotatedForm(x.name)).sort((a, b) => a.doc_date.localeCompare(b.doc_date))
+  const says = (x, v) => {
+    const n = noteOf(x.name)
+    return v === 'pass' ? WORDS.pass.test(n) && !WORDS.fail.test(n) : v === 'fail' ? WORDS.fail.test(n) : v === 'gap' ? WORDS.gap.test(n) && !WORDS.fail.test(n) : false
+  }
+  const after = d => x => !d || x.doc_date >= d
+  let coaForm = null
+  if (stages.coa != null) coaForm = list.filter(after(from)).find(x => says(x, stages.coa)) || null
+  let docs = null
+  if (stages.docs != null) {
+    const same = coaForm && DOC_WORDS.test(noteOf(coaForm.name)) && says(coaForm, stages.docs) ? coaForm : null
+    const later = coaForm ? list.filter(x => x.doc_date > coaForm.doc_date) : []
+    docs = (same || later.find(x => says(x, stages.docs)) || later[0])?.doc_date ?? null
+  }
+  return { coa: coaForm?.doc_date ?? null, docs }
 }
 
 // ── The line: AVL → CoA → Docs → QC sample → Decision ─────────────────────

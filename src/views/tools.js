@@ -8,6 +8,7 @@ import { pill, pillOf, who, shortId } from '../parts.js'
 import { replyGroups, puReply, DEFAULT_TOPIC } from '../reply.js'
 import { healthCheck, RULES } from '../health.js'
 import { logSentMany } from '../edits.js'
+import { dmyInput } from '../dateInput.js'
 
 // ── Small dialogs ──
 // A form in a modal: fields (HTML) and one submit button. onSubmit gets the
@@ -27,10 +28,11 @@ export function formDialog({ title, sub = '', fields, submit, onSubmit }) {
     btn.disabled = true
     try { await onSubmit(new FormData(form), e.submitter); m.close() } catch (err) { toast(err.message || String(err)); btn.disabled = false }
   })
-  form.querySelector('input:not([type=hidden]), textarea')?.focus()
+  form.querySelector('input:not([type=hidden]):not(.dmy-native), textarea')?.focus()
   return m
 }
-export const dateField = (name, label, value = todayIso()) => `<label class="field">${esc(label)}<input type="date" name="${name}" value="${value}" max="${todayIso()}" required></label>`
+// dd-mm-yyyy whatever the PC's locale (see dateInput.js).
+export const dateField = (name, label, value = todayIso()) => `<label class="field">${esc(label)}${dmyInput(name, value, { max: todayIso() })}</label>`
 
 // "Mark as sent": the date and the LINE screenshot(s), pasted, dropped or picked.
 export function sentDialog({ title, sub, submit = 'Log as sent', onSubmit }) {
