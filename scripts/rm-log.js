@@ -4,9 +4,13 @@
 //
 // Actions:
 //   message    a message sent        --party "PU (K. Am)" --note "what was said"
-//   requested  documents requested   --what "GMP, MSDS, 50 g sample" --party "PU" [--form]
+//   requested  documents requested   --what "GMP, MSDS" --party "PU" [--form | --sample]
 //                                    (--form = paperwork only, e.g. a signed Selection Form;
-//                                     it doesn't move the row to In progress)
+//                                     it doesn't move the row to In progress.
+//                                     --sample = a QC sample, logged on its own so the sample
+//                                     tracker follows it; --party QC = sent to QC for testing.
+//                                     Close it with `received --close <id>`; set the result
+//                                     with `set --qc approved|not-approved --date YYMMDD`.)
 //   received   documents received    --what "GMP certificate" [--close all]  (closes open requests)
 //   verdict    CoA verdict issued    --coa ขาด --what "one-line reason" [--next "next action"]
 //   note       free note             --note "..."
@@ -135,7 +139,7 @@ const row = {
   what: opt.what === true ? null : opt.what ?? (action === 'verdict' ? opt.coa ?? opt.stamp ?? null : null),
   party: opt.party === true ? null : opt.party ?? null,
   note: opt.note === true ? null : opt.note ?? null,
-  ...(action === 'requested' && opt.form ? { topic: 'form' } : {}),
+  ...(action === 'requested' && opt.form ? { topic: 'form' } : action === 'requested' && opt.sample ? { topic: 'sample' } : {}),
 }
 const logged = must(await supa.from('rm_events').insert(row).select('id,evaluation_id,material_id').single())
 console.log(`Logged ${action} for ${ev ? label(ev) : mat.folder} on ${date}  [${logged.id.slice(0, 8)}]`)

@@ -230,6 +230,15 @@ create policy "rm-files members" on storage.objects for all to authenticated
 alter table rm_evaluations add column if not exists avl_match jsonb;
 ```
 
+```sql
+-- ── QC sample requests (v0.9.0) ────────────────────────────────────────
+-- 'sample' = a QC sample asked for on its own, so the sample tracker can follow
+-- it (to PU: requested → received; to QC: sent for testing → result).
+alter table rm_events drop constraint if exists rm_events_topic_check;
+alter table rm_events add constraint rm_events_topic_check
+  check (topic in ('form', 'sample'));
+```
+
 The AVL file is read from `Z:\3.QA-Shared\7.AVL\` by default; set `AVL_FILE`
 in `.env.local` to read another copy. When Z: isn't connected the scan skips
 it and keeps the last result.

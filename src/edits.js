@@ -8,6 +8,7 @@ import {
 } from './data.js'
 import { record, hooks, markForPurge } from './undo.js'
 import { toast } from './ui.js'
+import { splitAsks } from './handoff.js'
 
 const put = (list, row) => { const i = list.findIndex(x => x.id === row.id); if (i >= 0) list[i] = row; else list.push(row) }
 const drop = (key, ids) => { const s = new Set(ids); state.data[key] = (state.data[key] || []).filter(x => !s.has(x.id)) }
@@ -55,10 +56,10 @@ export async function saveFields(r, patch, kind) {
   changed()
 }
 
-export async function setReceived(reqId, on) {
+export async function setReceived(reqId, on, date = todayIso()) {
   const apply = async v => put(state.data.events, await updateEvent(reqId, { closed_on: v }))
-  await apply(on ? todayIso() : null)
-  record({ label: on ? 'Marked received' : 'Request reopened', undo: () => apply(on ? null : todayIso()), redo: () => apply(on ? todayIso() : null) })
+  await apply(on ? date : null)
+  record({ label: on ? 'Marked received' : 'Request reopened', undo: () => apply(on ? null : date), redo: () => apply(on ? date : null) })
   toast(on ? 'Marked received · Ctrl+Z to undo' : 'Request reopened')
   changed()
 }
@@ -89,20 +90,101 @@ export async function addEntry(r, fields, files = [], closeIds = []) {
   return ev
 }
 
-// Message sent to PU plus the request it makes, as one undo step.
-export async function logSent(r, { message, asks, party = 'PU' }) {
-  const date = todayIso()
-  const made = []
-  made.push(await addEvent({ material_id: r.material.id, evaluation_id: r.id, kind: 'message_sent', event_date: date, party, note: message }))
-  if (asks.length) made.push(await addEvent({ material_id: r.material.id, evaluation_id: r.id, kind: 'docs_requested', event_date: date, party, what: asks.join('; ') }))
-  state.data.events.push(...made)
+// Events plus their images as one undo step (the images go with their event).
+function recordMade(label, made, imgs) {
   record({
-    label: 'Message logged',
-    undo: async () => { for (const x of made) await deleteEvent(x.id); drop('events', made.map(x => x.id)) },
-    redo: async () => { for (const x of made) state.data.events.push(await restoreEvent(stripEv(x))) },
+    label,
+    undo: async () => {
+      for (const x of made) await deleteEvent(x.id)
+      drop('events', made.map(x => x.id)); drop('evidence', imgs.map(x => x.id))
+      markForPurge(imgs.map(x => x.path))
+    },
+    redo: async () => {
+      for (const x of made) state.data.events.push(await restoreEvent(stripEv(x)))
+      state.data.evidence.push(...await restoreEvidence(imgs.map(stripImg)))
+    },
   })
+}
+
+// Message sent to PU plus the requests it makes, and its LINE screenshot, as
+// one undo step. A sample ask becomes its own sample request (the QC sample tracker).
+export async function logSent(r, { message, asks, party = 'PU', date = todayIso(), files = [] }) {
+  const base = { material_id: r.material.id, evaluation_id: r.id, event_date: date, party }
+  const msg = await addEvent({ ...base, kind: 'message_sent', note: message })
+  const made = [msg], imgs = []
+  const { data, sample } = splitAsks(asks)
+  if (data.length) made.push(await addEvent({ ...base, kind: 'docs_requested', what: data.join('; ') }))
+  if (sample.length) made.push(await addEvent({ ...base, kind: 'docs_requested', what: sample.join('; '), topic: 'sample' }))
+  for (const f of files) imgs.push(await addEvidence(msg, f))
+  state.data.events.push(...made)
+  state.data.evidence = [...(state.data.evidence || []), ...imgs]
+  recordMade('Message logged', made, imgs)
   changed()
-  return made[made.length - 1]
+  return msg
+}
+
+// One message (the multi-material reply) logged on every evaluation it covers,
+// each with its own copy of the screenshot.
+export async function logSentMany(rows, { note, party = 'PU', date = todayIso(), files = [] }) {
+  const made = [], imgs = []
+  for (const r of rows) {
+    const msg = await addEvent({ material_id: r.material.id, evaluation_id: r.id, kind: 'message_sent', event_date: date, party, note })
+    made.push(msg)
+    for (const f of files) imgs.push(await addEvidence(msg, f))
+  }
+  state.data.events.push(...made)
+  state.data.evidence = [...(state.data.evidence || []), ...imgs]
+  recordMade(`Reply logged on ${made.length} evaluation${made.length === 1 ? '' : 's'}`, made, imgs)
+  changed()
+  return made
+}
+
+// The decision's date: moves its stage entry (and clears "estimated"), or
+// adds the entry when the decision was never logged with a date.
+export async function setDecisionDate(r, date) {
+  const v = r.stages.outcome
+  const hit = state.data.events.filter(x => x.evaluation_id === r.id && x.kind === 'stage' && x.what === 'outcome' && x.note === String(v)).pop()
+  if (hit) {
+    const prev = { event_date: hit.event_date, estimated: !!hit.estimated }
+    const apply = async p => put(state.data.events, await updateEvent(hit.id, p))
+    await apply({ event_date: date, estimated: false })
+    record({ label: 'Decision date set', undo: () => apply(prev), redo: () => apply({ event_date: date, estimated: false }) })
+  } else {
+    let ev = await addStageEvent(r, 'outcome', v, date)
+    state.data.events.push(ev)
+    record({
+      label: 'Decision date set',
+      undo: async () => { await deleteEvent(ev.id); drop('events', [ev.id]) },
+      redo: async () => { ev = await restoreEvent(stripEv(ev)); state.data.events.push(ev) },
+    })
+  }
+  toast(`Decision dated ${date.slice(8, 10)}-${date.slice(5, 7)}-${date.slice(2, 4)}`)
+  changed()
+}
+
+// QC sample result: the QC stage on that date, and the analysis request to QC closed.
+export async function setQcResult(r, value, date = todayIso()) {
+  const prev = r.raw.qc ?? null
+  const sentId = r.sample?.sentId
+  const sentOpen = sentId && !state.data.events.find(x => x.id === sentId)?.closed_on
+  let stageEv = null
+  const apply = async () => {
+    await writeEval(r.id, { qc: value })
+    try { stageEv = await addStageEvent(r, 'qc', value, date); state.data.events.push(stageEv) } catch { stageEv = null }
+    if (sentOpen) put(state.data.events, await updateEvent(sentId, { closed_on: date }))
+  }
+  await apply()
+  record({
+    label: 'QC result set',
+    undo: async () => {
+      await writeEval(r.id, { qc: prev })
+      if (stageEv) { await deleteEvent(stageEv.id); drop('events', [stageEv.id]) }
+      if (sentOpen) put(state.data.events, await updateEvent(sentId, { closed_on: null }))
+    },
+    redo: apply,
+  })
+  toast(`QC sample: ${value === 'approved' ? 'Approved' : 'Not approved'}`)
+  changed()
 }
 
 export async function deleteEntry(ev) {

@@ -87,6 +87,11 @@ export function asksFor(r, doc) {
   return asks
 }
 
+// Asks logged as sent: the sample goes in its own request (the QC sample
+// tracker follows it), everything else in one data request.
+export const isSampleAsk = a => /ตัวอย่าง|\bsamples?\b/i.test(String(a))
+export const splitAsks = asks => ({ data: asks.filter(a => !isSampleAsk(a)), sample: asks.filter(isSampleAsk) })
+
 // Thai result message to PU in the golden form (rm_eval_pu_message_golden_form).
 export function puMessage(r, { body, doc, link } = {}) {
   const f = facts(body)

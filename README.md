@@ -50,6 +50,13 @@ Raw Material Evaluation Document\ ──(lib/scanner.js: desktop Re-scan, daily 
   Document folders (estimated decision date vs a signed form, Approved with docs missing, Not
   approved with an open request, request text vs `request_asked`, `request_sent` with nothing
   open, no tracker block). Read-only: it reports, fixing is by hand.
+- v0.9: **QC sample tracker** (`model.js` `sampleOf`): a sample is its own request (`topic
+  'sample'`, v0.9.0 SQL): to PU = requested → received; to QC = sent for testing → the QC
+  stage as result, days between each. **Expiry watch**: `<doc>_valid_to:` lines in the tracker
+  block (`lib/parse.js` `expiriesOf`), within 60 days on Overview. **Mark as sent** logs a
+  message (and, from a result message, its requests) with the LINE screenshot in one step; a
+  multi-material reply logs on every evaluation, one image copy each. **Decision date** can be
+  set from the Decision station.
 - Addresses: `#/`, `#/evaluations`, `#/e/<first 8 of the id>[/tab]`, `#/settings`. A manager's
   view link is the same behind `#/v/<token>/`, read through `api/view.js` (Vercel) with the
   service key on the server; the browser gets no key that can write.

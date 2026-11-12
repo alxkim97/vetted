@@ -24,7 +24,7 @@ export const isSignedForm = name => /selection form/i.test(name) && (/(?<!un)sig
 // Not approved / Rejected), then any signed form; the newest of the best.
 const NO_WORD = /\bnot approved\b|\brejected\b/i
 const YES_WORD = /(?<!not )\bapproved\b/i
-function signedFormFor(list, outcome) {
+export function signedFormFor(list, outcome) {
   const score = f => (outcome === 'approved' ? YES_WORD.test(f.name) && !NO_WORD.test(f.name) : outcome === 'not_approved' ? NO_WORD.test(f.name) : false) ? 2 : 1
   return list.filter(f => isSignedForm(f.name) && f.doc_date)
     .sort((a, b) => score(b) - score(a) || b.doc_date.localeCompare(a.doc_date))[0] ?? null
@@ -42,7 +42,7 @@ export function healthCheck(rows, files = []) {
   const out = []
   for (const r of rows) {
     const t = r.raw?.tracker || {}
-    const add = (rule, reason) => out.push({ id: r.id, row: r, rule, title: RULES[rule], reason })
+    const add = (rule, reason, fix = null) => out.push({ id: r.id, row: r, rule, title: RULES[rule], reason, fix })
     const closed = CLOSED.includes(r.status)
     const openData = r.openRequests.filter(q => q.topic !== 'form')
 
@@ -51,7 +51,7 @@ export function healthCheck(rows, files = []) {
     const d = r.stageDates?.outcome
     if (r.stages.outcome && d?.est) {
       const form = signedFormFor(filesBy[r.id] || [], r.stages.outcome)
-      if (form && form.doc_date !== d.date) add('decision_estimated', `The decision is dated ${fmtDate(d.date)}* (estimated from the timeline), but a signed Selection Form is in the ${fmtDate(form.doc_date)} Document folder. Date the decision from the form.`)
+      if (form && form.doc_date !== d.date) add('decision_estimated', `The decision is dated ${fmtDate(d.date)}* (estimated from the timeline), but a signed Selection Form is in the ${fmtDate(form.doc_date)} Document folder. Date the decision from the form.`, { date: form.doc_date })
     }
 
     // 2. Approved while the documents stage says Missing or Fail.

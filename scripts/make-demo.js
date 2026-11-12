@@ -47,6 +47,16 @@ open.forEach((e, i) => {
 const more = evaluations.filter(e => e.coa && !open.includes(e) && !e.outcome)
 if (more[0]) { more[0].coa = 'gap'; add(more[0], 'docs_requested', 1, { party: 'PU', what: '(example) Signed Selection Form', topic: 'form' }) }
 if (more[1]) { Object.assign(more[1], { coa: 'pass', docs: 'pass', avl_listed: false }) }
+// v0.9 examples: a QC sample at each step, and valid-until dates near and far.
+const ago = n => new Date(Date.now() - n * 864e5).toISOString().slice(0, 10)
+const yymmdd = n => ago(-n).slice(2).replace(/-/g, '')
+if (more[1]) {
+  add(more[1], 'docs_requested', 14, { party: 'PU', what: '(example) QC sample 300 g with the CoA of the sampled lot', topic: 'sample', closed_on: ago(8) })
+  add(more[1], 'docs_requested', 6, { party: 'QC', what: '(example) QC analysis request (FR-PR-PC-006)', topic: 'sample' })
+  more[1].tracker = { ...more[1].tracker, gmp_valid_to: yymmdd(24), iso_valid_to: yymmdd(700) }
+}
+if (open[0]) { add(open[0], 'docs_requested', 3, { party: 'PU', what: '(example) QC sample 500 g', topic: 'sample' }); open[0].tracker = { ...open[0].tracker, quotation_valid_to: yymmdd(-4) } }
+if (open[1]) open[1].tracker = { ...open[1].tracker, fssc_valid_to: yymmdd(52) }
 
 // The comparison files themselves, for the full evaluation page.
 const docs = Object.fromEntries(scan.evaluations.filter(e => e.body).map(e => [ev[e.folder].id, e.body]))

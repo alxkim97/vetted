@@ -68,8 +68,8 @@ export const addEvent = async ev =>
   must(await supa.from('rm_events').insert({ ...pick(ev, ['material_id', 'evaluation_id', 'kind', 'event_date', 'what', 'party', 'note', ...(ev.topic ? ['topic'] : [])]), source: 'app' }).select('*').single())
 
 // A stage change as a dated timeline entry (v0.7): what = stage key, note = new value.
-export const addStageEvent = async (r, key, value) =>
-  must(await supa.from('rm_events').insert({ material_id: r.material.id, evaluation_id: r.id, kind: 'stage', event_date: todayIso(), what: key, note: value == null ? null : String(value), source: 'app' }).select('*').single())
+export const addStageEvent = async (r, key, value, date = todayIso()) =>
+  must(await supa.from('rm_events').insert({ material_id: r.material.id, evaluation_id: r.id, kind: 'stage', event_date: date, what: key, note: value == null ? null : String(value), source: 'app' }).select('*').single())
 
 // Undo puts back exactly what was deleted, same ids.
 export const restoreEvent = async row => must(await supa.from('rm_events').insert(row).select('*').single())
@@ -77,7 +77,7 @@ export const restoreEvidence = async rows => rows.length ? must(await supa.from(
 export const removeEvidenceRows = async ids => { if (ids.length) must(await supa.from('rm_evidence').delete().in('id', ids)) }
 
 export const updateEvent = async (id, patch) =>
-  must(await supa.from('rm_events').update(pick(patch, ['event_date', 'what', 'party', 'note', 'closed_on'])).eq('id', id).select('*').single())
+  must(await supa.from('rm_events').update(pick(patch, ['event_date', 'what', 'party', 'note', 'closed_on', 'estimated'])).eq('id', id).select('*').single())
 
 // Image files stay in the bucket until the delete can no longer be undone
 // (see undo.js purge); only the rows go now.

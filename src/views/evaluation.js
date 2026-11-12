@@ -2,16 +2,17 @@
 // sample → Decision), who has it now, then Summary / Comparison / Timeline /
 // Documents. Everything is edited here; a view link shows the same page read-only.
 import { state, readOnly } from '../store.js'
-import { STATUS, STAGES, OUTCOMES, EVENT_KINDS, STATIONS, fmtDate, todayIso, waitTone, productNames, daysBetween } from '../model.js'
+import { STATUS, STAGES, OUTCOMES, EVENT_KINDS, STATIONS, SAMPLE_STEPS, fmtDate, todayIso, waitTone, productNames, daysBetween } from '../model.js'
 import { esc, icon, openModal, toast, confirmBox, openMenu, closeMenu, copyText } from '../ui.js'
 import { pill, viewLink, evalHash } from '../parts.js'
 import { parseDoc, issuesOf, tally, toEnglish, cellGap, plain } from '../../lib/doc.js'
 import { stampToStages } from '../../lib/parse.js'
-import { COLUMN, setStage, saveFields, addEntry, deleteEntry, addImages, deleteImage, logSent } from '../edits.js'
+import { COLUMN, setStage, saveFields, addEntry, deleteEntry, addImages, deleteImage, logSent, setReceived, setQcResult, setDecisionDate } from '../edits.js'
 import { evidenceUrls, fileUrl } from '../data.js'
 import { chatPrompt, puMessage, facts, DEFAULT_ROOT } from '../handoff.js'
 import { printEvaluation } from '../print.js'
-import { lookPanel } from './tools.js'
+import { lookPanel, formDialog, sentDialog, dateField, expiryWord } from './tools.js'
+import { signedFormFor } from '../health.js'
 
 const isDesktop = () => !!window.electronAPI?.isElectron
 const TONE_LABEL = { fail: 'Fail', missing: 'Missing', confirm: 'Confirm', pending: 'Pending', pass: 'Pass', na: 'N/A' }
@@ -157,7 +158,8 @@ export function stageMenu(anchor, key) {
   if (!r) return
   const k = key === 'decision' ? 'outcome' : key
   const title = k === 'outcome' ? 'Decision' : STAGES.find(s => s.key === k).label
-  if (anchor.dataset.locked) return openMenu(anchor, [], { html: `<p class="menu-head">${esc(title)}</p><p class="menu-text">Set by the tracker block in the comparison file. Change it there, then scan.</p>` })
+  const dateItem = k === 'outcome' && r.stages.outcome ? `<hr><button type="button" class="menu-item" data-act="decision-date"><span class="menu-check"></span><span>Set decision date…<small>${r.stageDates.outcome?.date ? `Now ${fmtDate(r.stageDates.outcome.date)}${r.stageDates.outcome.est ? ' (estimated)' : ''}` : 'Not dated yet'}</small></span></button>` : ''
+  if (anchor.dataset.locked) return openMenu(anchor, [], { html: `<p class="menu-head">${esc(title)}</p><p class="menu-text">Set by the tracker block in the comparison file. Change it there, then scan.</p>${dateItem}` })
   const values = k === 'outcome' ? OUTCOMES : STAGES.find(s => s.key === k).values
   const cur = r.stages[k]
   const warn = k === 'outcome' && r.stages.qc !== 'approved' ? 'Approved before the QC sample: say why in the timeline.' : k === 'docs' && r.stages.coa !== 'pass' ? 'Docs usually wait until the CoA passes.' : null
@@ -166,6 +168,7 @@ export function stageMenu(anchor, key) {
     ...values.map(([v, l]) => ({ label: l, act: 'set-stage', id: k, value: String(v), on: cur === v })),
     ...(cur != null ? [{ sep: true }, { label: 'Clear', act: 'set-stage', id: k, value: '' }] : []),
     ...(warn ? [{ sep: true }, { head: warn }] : []),
+    ...(k === 'outcome' && cur != null ? [{ sep: true }, { label: 'Set decision date…', act: 'decision-date', hint: r.stageDates.outcome?.date ? `Now ${fmtDate(r.stageDates.outcome.date)}${r.stageDates.outcome.est ? ' (estimated)' : ''}` : 'Not dated yet' }] : []),
   ])
 }
 
@@ -240,7 +243,8 @@ function summaryTab(r, doc) {
       </div>
       <div class="col">
         ${factsPanel(r, f)}
-        ${r.openRequests.length ? `<div class="panel"><h3>Open requests</h3><ul class="asks">${r.openRequests.map(q => `<li class="t-${waitTone(q.days) === 'ok' ? 'blue' : waitTone(q.days)}"><i></i><span><b>${esc(q.what || 'Documents')}</b> · ${esc(q.party || 'PU')}, ${fmtDate(q.event_date)} · ${q.days} d${q.topic === 'form' ? ' · signed form only' : ''}</span></li>`).join('')}</ul></div>` : ''}
+        ${samplePanel(r)}
+        ${r.openRequests.length ? `<div class="panel"><h3>Open requests</h3><ul class="asks">${r.openRequests.map(q => `<li class="t-${waitTone(q.days) === 'ok' ? 'blue' : waitTone(q.days)}"><i></i><span><b>${esc(q.what || 'Documents')}</b> · ${esc(q.party || 'PU')}, ${fmtDate(q.event_date)} · ${q.days} d${q.topic === 'form' ? ' · signed form only' : q.topic === 'sample' ? ' · sample' : ''}</span></li>`).join('')}</ul></div>` : ''}
       </div>
     </div>`
 }
@@ -248,9 +252,35 @@ function summaryTab(r, doc) {
 function puPanel(r, doc) {
   const msg = puMessage(r, { body: state.docs[r.id]?.body, doc, link: viewLink(r.id) })
   return `<div class="panel pu">
-    <h3>PU message <span class="h3-acts"><button class="btn small dark" data-act="copy-pu">${icon('copy', 14)} Copy</button><button class="btn small cta" data-act="log-sent">Log as sent</button></span></h3>
+    <h3>PU message <span class="h3-acts"><button class="btn small dark" data-act="copy-pu">${icon('copy', 14)} Copy</button><button class="btn small cta" data-act="log-sent">Mark as sent</button></span></h3>
     <pre class="thai" id="pu-text">${esc(msg.text)}</pre>
-    <p class="note">Built in the golden form from the stages and the file's flagged rows; trim it before sending. Log as sent records the message${msg.asks.length ? ' and the request' : ''}; then paste the LINE screenshot (Ctrl+V) to attach it.</p>
+    <p class="note">Built in the golden form from the stages and the file's flagged rows; trim it before sending. Mark as sent records the message${msg.asks.length ? ' and what it asks for (a sample as its own request)' : ''} with the LINE screenshot.</p>
+  </div>`
+}
+
+// QC sample: requested from PU → received → sent to QC → result, days between.
+// Shown once there's a sample, or once the CoA has passed and it's next.
+function samplePanel(r) {
+  const s = r.sample
+  if (!s && !(r.stages.coa === 'pass' && !r.stages.outcome)) return ''
+  const ro = readOnly()
+  const steps = s?.steps || SAMPLE_STEPS.map(([key, label]) => ({ key, label, done: false }))
+  const now = s ? s.now : 'requested'
+  // An older mixed request ("GMP, MSDS, QC sample") that isn't tracked as a sample.
+  const mixed = !s?.askId && r.openRequests.find(q => q.topic !== 'sample' && /sample|ตัวอย่าง/i.test(q.what || ''))
+  const locked = r.fromFile.has('qc')
+  const ACT = { requested: ['sample-ask', 'Ask PU for a sample'], received: ['sample-received', 'Sample received'], sent: ['sample-sent', 'Sent to QC'], result: locked ? null : ['sample-result', 'QC result'] }
+  const act = !ro && now && !r.stages.outcome ? ACT[now] : null
+  const RESULT = { approved: 'Approved', not_approved: 'Not approved' }
+  return `<div class="panel sample-panel">
+    <h3>QC sample ${s?.open && s.waitingDays != null ? `<span class="wait w-${waitTone(s.waitingDays)}">${s.waitingDays} d${s.holder ? ` · ${esc(s.holder === 'RD' ? 'you' : s.holder)}` : ''}</span>` : ''}${act ? `<button class="btn soft small h3-right" data-act="${act[0]}">${act[1]}</button>` : ''}</h3>
+    <ol class="sample-steps">${steps.map(x => `<li class="${x.done ? 'done' : x.key === now ? 'now' : ''}${x.key === 'result' && x.value === 'not_approved' ? ' bad' : ''}">
+      <i></i><b>${esc(x.label)}</b>
+      <span>${x.date ? `${fmtDate(x.date)}${x.est ? '*' : ''}${x.key === 'result' && x.value ? ` · ${RESULT[x.value]}` : ''}` : x.done ? (x.value ? RESULT[x.value] : 'done') : '—'}</span>
+      ${x.days != null ? `<small>+${x.days} d</small>` : ''}</li>`).join('')}</ol>
+    ${s?.steps[0]?.what ? `<p class="note">Asked: ${esc(s.steps[0].what)}</p>` : ''}
+    ${mixed ? `<p class="note">An open request mentions a sample (${esc(mixed.what)}, ${fmtDate(mixed.event_date)}) but isn't tracked as one. Use “Ask PU for a sample” with its date to track it.</p>` : ''}
+    ${locked && now === 'result' ? '<p class="note">The QC result comes from the tracker block (qc:). Set it there, then scan.</p>' : ''}
   </div>`
 }
 
@@ -277,6 +307,7 @@ function factsPanel(r, f) {
     ['Item code', r.itemCode], ['Type', r.kind ? (r.kind === 'api' ? 'API' : 'Excipient') : null],
     ['Reference', f.opLine ? (f.opLine.length > 140 ? f.opLine.slice(0, 137) + '…' : f.opLine) : null],
     ['CoA cites', f.candEdition], ['Used in', productNames(r.products).join(', ') || null],
+    ...r.expiries.map(x => [`${x.doc} valid to`, x.date ? `${fmtDate(x.date)}${x.days <= 60 ? ` · ${expiryWord(x.days)}` : ''}` : `${x.raw} (not a date)`]),
     ['Next', r.nextAction || r.nextStep], ['Notes', r.raw.notes], ['File', r.fileName ? `R.${r.rev} · ${fmtDate(r.revDate)}` : null],
   ].filter(([, v]) => v)
   return `<div class="panel">
@@ -320,7 +351,8 @@ function timelineTab(r) {
       <label class="field">${k === 'verdict' ? 'Verdict' : 'Documents'}<input name="what" placeholder="${k === 'verdict' ? 'Missing: GMP certificate' : 'GMP, MSDS, 50 g sample'}"></label>
     </div>
     <label class="field">${k === 'message_sent' ? 'What was said' : 'Note'}<textarea name="note" rows="2"></textarea></label>
-    ${k === 'docs_requested' ? `<label class="check-line"><input type="checkbox" name="topic_form"> Paperwork only (a signed form): doesn't move it to In progress</label>` : ''}
+    ${k === 'docs_requested' ? `<label class="check-line"><input type="checkbox" name="topic_form"> Paperwork only (a signed form): doesn't move it to In progress</label>
+      <label class="check-line"><input type="checkbox" name="topic_sample"> QC sample (the sample tracker follows it; To "QC" = sent to QC for testing)</label>` : ''}
     <div class="drop-zone">${ui.pending.map((p, i) => `<span class="pend"><img src="${esc(p.url)}" alt=""><button type="button" class="icon-btn small" data-act="unpend" data-value="${i}" aria-label="Remove image">${icon('x', 13)}</button></span>`).join('')}
       <button type="button" class="btn ghost small" data-act="pick-img">${icon('image', 15)} Add images</button><span class="muted small">or paste (Ctrl+V) or drop a screenshot here</span></div>
     ${k === 'docs_received' && r.openRequests.length ? `<label class="check-line"><input type="checkbox" name="close" checked> Close the ${r.openRequests.length} open request${r.openRequests.length > 1 ? 's' : ''}</label>` : ''}
@@ -340,7 +372,7 @@ function timelineTab(r) {
     return `<li class="tl-item k-${ev.kind}"><span class="d">${fmtDate(ev.event_date)}</span><span class="k"><i></i></span>
       <div class="b">
         <div class="ev-head"><b>${EVENT_KINDS[ev.kind].label}</b>${ev.party ? `<span>· ${esc(ev.party)}</span>` : ''}<span class="src">${ev.source}</span>
-          ${ev.topic === 'form' ? '<span class="tag form">Form</span>' : ''}
+          ${ev.topic === 'form' ? '<span class="tag form">Form</span>' : ev.topic === 'sample' ? '<span class="tag sample">Sample</span>' : ''}
           ${ev.kind === 'docs_requested' ? ev.closed_on ? `<span class="tag ok">Received ${fmtDate(ev.closed_on)}</span>` : `<span class="wait w-${waitTone(q?.days)}">Open · ${q?.days ?? 0} d</span>` : ''}</div>
         ${ev.what ? `<div class="ev-what">${esc(ev.what)}</div>` : ''}
         ${ev.note ? `<div class="ev-note">${esc(ev.note)}</div>` : ''}
@@ -470,13 +502,67 @@ export async function evalAction(act, el) {
     case 'copy-pu': copyText(document.getElementById('pu-text')?.textContent || '', 'PU message copied'); return true
     case 'log-sent': {
       const msg = puMessage(r, { body: state.docs[r.id]?.body, doc: docFor(r.id) })
-      const ev = await logSent(r, { message: msg.summary, asks: msg.asks })
-      ui.pasteTo = ev.id
-      ui.showPu = false
-      hooks.render()
-      toast('Logged as sent. Paste the LINE screenshot now (Ctrl+V) to attach it.')
+      sentDialog({
+        title: 'Mark the PU message as sent',
+        sub: `Logs “Message sent” to PU${msg.asks.length ? ` and what it asks for (${esc(msg.asks.join('; '))}), a sample as its own request` : ''}, with the screenshot. Ctrl+Z undoes it.`,
+        onSubmit: async ({ date, files }) => {
+          const ev = await logSent(r, { message: msg.summary, asks: msg.asks, date, files })
+          ui.pasteTo = files.length ? null : ev.id
+          ui.showPu = false
+          hooks.render()
+          toast(files.length ? 'Logged as sent with the screenshot' : 'Logged as sent. Paste the LINE screenshot now (Ctrl+V) to attach it.')
+        },
+      })
       return true
     }
+    case 'decision-date': {
+      closeMenu()
+      if (el.dataset.value) { await setDecisionDate(r, el.dataset.value); return true }
+      const form = signedFormFor(filesOf(r), r.stages.outcome)
+      const cur = r.stageDates.outcome
+      formDialog({
+        title: 'Decision date',
+        sub: `${esc(STATUS[r.status].label)}, now ${cur?.date ? `${fmtDate(cur.date)}${cur.est ? ' (estimated)' : ''}` : 'not dated'}.${form ? ` Signed form in the ${fmtDate(form.doc_date)} Document folder.` : ''}`,
+        fields: dateField('date', 'Decided on', form?.doc_date || cur?.date || todayIso()),
+        submit: 'Save',
+        onSubmit: fd => setDecisionDate(r, fd.get('date')),
+      })
+      return true
+    }
+    case 'sample-ask':
+      formDialog({
+        title: 'Ask PU for a QC sample', sub: 'Logged as its own request, so the sample tracker can follow it.',
+        fields: `${dateField('date', 'Asked on')}
+          <label class="field">What was asked<input name="what" value="ตัวอย่างสำหรับ QC พร้อม CoA ของ lot ที่ส่งตัวอย่าง" required></label>
+          <label class="field">To<input name="party" value="PU"></label>`,
+        submit: 'Log the request',
+        onSubmit: async fd => { await addEntry(r, { kind: 'docs_requested', event_date: fd.get('date'), what: fd.get('what').trim(), party: fd.get('party').trim() || 'PU', note: null, topic: 'sample' }); toast('Sample request logged') },
+      })
+      return true
+    case 'sample-received':
+      formDialog({
+        title: 'Sample received', sub: r.sample?.steps[0]?.date ? `Asked ${fmtDate(r.sample.steps[0].date)}.` : '',
+        fields: dateField('date', 'Received on'), submit: 'Save',
+        onSubmit: fd => setReceived(r.sample.askId, true, fd.get('date')),
+      })
+      return true
+    case 'sample-sent':
+      formDialog({
+        title: 'Sample sent to QC', sub: 'Logged as a sample request to QC; the QC result closes it.',
+        fields: `${dateField('date', 'Sent on')}<label class="field">What<input name="what" value="QC analysis request (FR-PR-PC-006)"></label>`,
+        submit: 'Log it',
+        onSubmit: async fd => { await addEntry(r, { kind: 'docs_requested', event_date: fd.get('date'), what: fd.get('what').trim() || null, party: 'QC', note: null, topic: 'sample' }); toast('Sent to QC logged') },
+      })
+      return true
+    case 'sample-result':
+      formDialog({
+        title: 'QC sample result', sub: 'Sets the QC sample stage, dated, and closes the request to QC.',
+        fields: `${dateField('date', 'Result on')}
+          <div class="choice">${[['approved', 'Approved'], ['not_approved', 'Not approved']].map(([v, l], i) => `<label class="choice-item"><input type="radio" name="value" value="${v}"${i ? '' : ' checked'}><span>${l}</span></label>`).join('')}</div>`,
+        submit: 'Save',
+        onSubmit: fd => setQcResult(r, fd.get('value'), fd.get('date')),
+      })
+      return true
     case 'copy-prompt': closeMenu(); copyPromptFor(r); return true
     case 'copy-view-link': {
       closeMenu()
@@ -540,7 +626,7 @@ export async function evalSubmit(e) {
       const files = ui.pending.map(p => p.file)
       const close = kind === 'docs_received' && fd.get('close') ? r.openRequests.map(q => q.id) : []
       ui.adding = false
-      await addEntry(r, { kind, event_date: fd.get('event_date'), what: fd.get('what').trim() || null, party: fd.get('party').trim() || null, note: fd.get('note').trim() || null, topic: kind === 'docs_requested' && fd.get('topic_form') ? 'form' : null }, files, close)
+      await addEntry(r, { kind, event_date: fd.get('event_date'), what: fd.get('what').trim() || null, party: fd.get('party').trim() || null, note: fd.get('note').trim() || null, topic: kind !== 'docs_requested' ? null : fd.get('topic_form') ? 'form' : fd.get('topic_sample') ? 'sample' : null }, files, close)
       ui.pending.forEach(p => URL.revokeObjectURL(p.url))
       ui.pending = []
       toast(`${EVENT_KINDS[kind].label} logged`)

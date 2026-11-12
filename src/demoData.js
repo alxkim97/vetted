@@ -26,7 +26,7 @@ export const deleteEvidence = async row => { db.evidence = db.evidence.filter(x 
 export const evidenceUrls = async paths => Object.fromEntries(paths.map(p => [p, p]))
 export const runScan = async () => { throw new Error('Demo mode: scanning is off') }
 // v0.7: stage entries, undo restores, files, view link
-export const addStageEvent = async (r, key, value) => addEvent({ material_id: r.material.id, evaluation_id: r.id, kind: 'stage', event_date: new Date().toISOString().slice(0, 10), what: key, note: value == null ? null : String(value) })
+export const addStageEvent = async (r, key, value, date = new Date().toISOString().slice(0, 10)) => addEvent({ material_id: r.material.id, evaluation_id: r.id, kind: 'stage', event_date: date, what: key, note: value == null ? null : String(value) })
 export const restoreEvent = async row => { db.events.push(structuredClone(row)); return structuredClone(row) }
 export const restoreEvidence = async rows => { (db.evidence ||= []).push(...structuredClone(rows)); return structuredClone(rows) }
 export const removeEvidenceRows = async ids => { db.evidence = (db.evidence || []).filter(x => !ids.includes(x.id)) }

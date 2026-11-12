@@ -1,6 +1,6 @@
 // Turns raw rows into what the views show: effective fields (file tracker
 // block over app value over scan guess), status, timeline and durations.
-import { STAGE_KEYS, stampToStages, suggestStamp, toIsoDate } from '../lib/parse.js'
+import { STAGE_KEYS, stampToStages, suggestStamp, toIsoDate, expiriesOf } from '../lib/parse.js'
 import { toEnglish } from '../lib/doc.js'
 
 // One status per evaluation, worked out from its stages and open requests
@@ -176,8 +176,50 @@ export function buildRows({ materials, evaluations, events }) {
       stageDates: sd, stations, since,
       holder: holderOf(stages, openData, since, sd),
       decisionDays: firstDocs && sd.outcome?.date >= firstDocs ? daysBetween(firstDocs, sd.outcome.date) : null,
+      sample: sampleOf(evs, stages, sd, today),
+      // Valid-until dates from the tracker block, days left (negative = expired).
+      expiries: expiriesOf(t).map(x => ({ ...x, days: x.date ? daysBetween(today, x.date) : null })),
     }
   })
+}
+
+// Valid-until dates within `within` days, or already past, on evaluations still
+// in use (not Not approved, not Closed). Soonest first.
+export const expiring = (rows, within = 60) => rows.filter(r => !['not_approved', 'closed'].includes(r.status))
+  .flatMap(r => r.expiries.filter(x => x.days != null && x.days <= within).map(x => ({ r, ...x })))
+  .sort((a, b) => a.days - b.days)
+
+// ── QC sample: requested from PU → received by RD → sent to QC → QC result ──
+// A sample is its own request (topic 'sample'). The one to PU closes when the
+// sample arrives; the one to QC (party QC) is the analysis request, closed by
+// the result. The result is the QC stage and its date.
+export const SAMPLE_STEPS = [['requested', 'Requested'], ['received', 'Received'], ['sent', 'Sent to QC'], ['result', 'QC result']]
+export const isQcParty = p => /^qc\b/i.test(String(p || '').trim())
+export function sampleOf(evs, stages, sd, today = todayIso()) {
+  const reqs = evs.filter(x => x.kind === 'docs_requested' && x.topic === 'sample')
+  if (!reqs.length && !stages.qc) return null
+  const toQc = reqs.filter(x => isQcParty(x.party))
+  const ask = reqs.filter(x => !isQcParty(x.party)).pop() ?? null
+  const sent = toQc.pop() ?? null
+  const result = stages.qc ? { value: stages.qc, date: sd.qc?.date ?? sent?.closed_on ?? null, est: sd.qc?.date ? !!sd.qc.est : false } : null
+  const at = {
+    requested: ask ? { date: ask.event_date, id: ask.id, what: ask.what, party: ask.party || 'PU' } : null,
+    received: ask?.closed_on ? { date: ask.closed_on } : null,
+    sent: sent ? { date: sent.event_date, id: sent.id, what: sent.what } : null,
+    result: result ? { date: result.date, value: result.value, est: result.est } : null,
+  }
+  let prev = null
+  const steps = SAMPLE_STEPS.map(([key, label]) => {
+    const s = at[key]
+    const st = { key, label, date: s?.date ?? null, done: !!s, days: null, ...(s || {}) }
+    if (st.date && prev) st.days = daysBetween(prev, st.date)
+    if (st.date) prev = st.date
+    return st
+  })
+  // Where it is now: the first step not done (after a result, nowhere).
+  const now = result ? null : steps.find(s => !s.done)?.key ?? null
+  const holder = now === 'received' ? (at.requested?.party || 'PU') : now === 'sent' ? 'RD' : now === 'result' ? 'QC' : now === 'requested' ? 'RD' : null
+  return { steps, now, holder, waitingDays: now && prev ? daysBetween(prev, today) : null, result: result?.value ?? null, askId: ask?.id ?? null, sentId: sent?.id ?? null, open: !!now }
 }
 
 // ── Stage dates ──────────────────────────────────────────────────────────

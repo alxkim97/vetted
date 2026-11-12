@@ -4,7 +4,7 @@ import { state, YOUR_MOVE, CLOSED, readOnly } from '../store.js'
 import { STATUS, EVENT_KINDS, PROJECTS, STATIONS, fmtDate, todayIso, daysBetween, waitTone, notEvaluated } from '../model.js'
 import { esc, icon } from '../ui.js'
 import { pill, who } from '../parts.js'
-import { lookCard, replyButton } from './tools.js'
+import { lookCard, replyButton, samplesCard, expiryCard } from './tools.js'
 
 // Buttons at the right of the page head.
 export const overviewActions = () => readOnly() ? '' : `<div class="ph-acts">${replyButton()}</div>`
@@ -61,7 +61,7 @@ function waitCard() {
       <div class="list">
         ${shown.length ? shown.map(({ r, q }) => `
           <div class="lrow wait-row" data-act="evaluation" data-id="${r.id}" tabindex="0">
-            <span class="lmain"><b>${who(r)}</b><span>${esc(q.party || 'PU')} · ${q.topic === 'form' ? 'signed form · ' : ''}${esc(q.what || 'documents')} · asked ${fmtDate(q.event_date)}</span></span>
+            <span class="lmain"><b>${who(r)}</b><span>${esc(q.party || 'PU')} · ${q.topic === 'form' ? 'signed form · ' : q.topic === 'sample' ? 'sample · ' : ''}${esc(q.what || 'documents')} · asked ${fmtDate(q.event_date)}</span></span>
             <span class="wait w-${waitTone(q.days)}">${q.days} d</span>
             ${readOnly() || q.source === 'tracker' ? '' : `<button class="btn soft small" data-act="received" data-id="${q.id}">Mark received</button>`}
           </div>`).join('') : '<p class="empty">No open requests. Log one from an evaluation, or from a chat with <code>rm-log requested</code>.</p>'}
@@ -246,5 +246,5 @@ function notEvaluatedList(project) {
 
 export function renderOverview() {
   // Two independent columns, so a long card on one side doesn't leave a hole on the other.
-  return `<div class="ov"><div class="ov-col">${moveCard()}${lookCard()}${closedCard()}${turnCard()}</div><div class="ov-col">${waitCard()}${weekCard()}</div>${projectsCard()}</div>`
+  return `<div class="ov"><div class="ov-col">${moveCard()}${lookCard()}${closedCard()}${turnCard()}</div><div class="ov-col">${waitCard()}${samplesCard()}${expiryCard()}${weekCard()}</div>${projectsCard()}</div>`
 }
