@@ -14,6 +14,7 @@ import { printEvaluation } from '../print.js'
 import { lookPanel, formDialog, sentDialog, dateField, expiryWord } from './tools.js'
 import { signedFormFor } from '../health.js'
 import { dmyInput } from '../dateInput.js'
+import { zoomable } from '../zoom.js'
 
 const isDesktop = () => !!window.electronAPI?.isElectron
 const TONE_LABEL = { fail: 'Fail', missing: 'Missing', confirm: 'Confirm', pending: 'Pending', pass: 'Pass', na: 'N/A' }
@@ -370,7 +371,7 @@ function timelineTab(r) {
         <div class="b"><small>Stage · ${esc(label)} → ${esc(ev.note == null ? 'cleared' : STAGE_WORD[ev.note] ?? ev.note)}${ev.estimated ? ' · date estimated' : ''}</small></div></li>`
     }
     const q = r.openRequests.find(x => x.id === ev.id)
-    return `<li class="tl-item k-${ev.kind}"><span class="d">${fmtDate(ev.event_date)}</span><span class="k"><i></i></span>
+    return `<li class="tl-item k-${ev.kind}"${ro || ev.source === 'tracker' ? '' : ` data-ev="${ev.id}"`}><span class="d">${fmtDate(ev.event_date)}</span><span class="k"><i></i></span>
       <div class="b">
         <div class="ev-head"><b>${EVENT_KINDS[ev.kind].label}</b>${ev.party ? `<span>· ${esc(ev.party)}</span>` : ''}<span class="src">${ev.source}</span>
           ${ev.topic === 'form' ? '<span class="tag form">Form</span>' : ev.topic === 'sample' ? '<span class="tag sample">Sample</span>' : ''}
@@ -380,14 +381,14 @@ function timelineTab(r) {
         ${thumbs(ev)}
       </div>
       ${ro || ev.source === 'tracker' ? '' : `<div class="ev-acts">
-        <button class="icon-btn small" data-act="attach" data-id="${ev.id}" aria-label="Add image" title="Add evidence image">${icon('image', 15)}</button>
+        <button class="icon-btn small" data-act="attach" data-id="${ev.id}" aria-label="Add images" title="Add evidence images (or drop them on this entry)">${icon('image', 15)}</button>
         ${ev.kind === 'docs_requested' && !ev.closed_on ? `<button class="btn soft small" data-act="received" data-id="${ev.id}">Received</button>` : ''}
         ${ev.source !== 'scan' ? `<button class="icon-btn small" data-act="del-ev" data-id="${ev.id}" aria-label="Delete">${icon('trash', 15)}</button>` : ''}
       </div>`}
     </li>`
   }
   return `
-    ${ro || ui.adding ? '' : `<div class="tl-bar"><button class="btn soft small" data-act="add-entry">${icon('plus', 14)} Add entry</button><span class="note">Stage changes land here as you make them. Dates marked * are estimated from older entries.</span></div>`}
+    ${ro || ui.adding ? '' : `<div class="tl-bar"><button class="btn soft small" data-act="add-entry">${icon('plus', 14)} Add entry</button><span class="note">Stage changes land here as you make them. Dates marked * are estimated from older entries. Drop screenshots on an entry to attach them.</span></div>`}
     ${form}
     <ol class="tl panel">${evs.length ? evs.map(item).join('') : '<li class="empty">Nothing logged yet.</li>'}</ol>
     <input type="file" accept="image/*" multiple hidden data-file>`
@@ -457,17 +458,54 @@ export function renderEvaluation() {
 // ── Actions (main.js passes data-act clicks here first) ──
 const imagesOf = items => [...items].map(x => x.kind === 'file' ? x.getAsFile() : x).filter(f => f?.type?.startsWith('image/'))
 
+// The entry's images one at a time: scroll to zoom, drag to move, ← → between them.
 function viewImage(img) {
-  const url = ui.urls[img.path]
-  if (!url) return
+  if (!ui.urls[img.path]) return
+  const list = evidenceOf(img.event_id)
+  let i = Math.max(0, list.findIndex(x => x.id === img.id))
+  const many = list.length > 1
   const m = openModal(`
     <div class="lightbox">
-      <img src="${esc(url)}" alt="${esc(img.file_name || 'Evidence image')}">
-      <div class="row-end"><span class="muted small clip">${esc(img.file_name || '')}</span>
-        ${readOnly() ? '' : `<button class="btn ghost small" data-del>${icon('trash', 15)} Delete image</button>`}
+      <div class="lb-stage" data-stage>
+        <img data-img alt="">
+        ${many ? `<button type="button" class="lb-nav prev" data-step="-1" aria-label="Previous image">${icon('left', 20)}</button>
+          <button type="button" class="lb-nav next" data-step="1" aria-label="Next image">${icon('left', 20)}</button>` : ''}
+        <div class="lb-zoom"><button type="button" data-zoom="0.66" aria-label="Zoom out">−</button><button type="button" data-zoom="0" aria-label="Fit">Fit</button><button type="button" data-zoom="1.5" aria-label="Zoom in">+</button></div>
+      </div>
+      <div class="row-end lb-foot"><span class="muted small clip"><b data-count></b> <span data-name></span></span>
+        ${readOnly() ? '' : `<button class="btn ghost small" data-add>${icon('image', 15)} Add images</button>
+          <button class="btn ghost small" data-del>${icon('trash', 15)} Delete</button>`}
         <button class="btn primary small" data-close>Close</button></div>
-    </div>`, { wide: true })
-  m.el.querySelector('[data-del]')?.addEventListener('click', async () => { m.close(); try { await deleteImage(img) } catch (err) { toast(err.message) } })
+      <p class="lb-hint muted small">Scroll or pinch to zoom · drag to move · double-click to fit${many ? ' · ← → for the next image' : ''}</p>
+    </div>`, { wide: true, onClose: () => document.removeEventListener('keydown', onKey, true) })
+  m.el.classList.add('lb-modal')
+  const el = m.el, imgEl = el.querySelector('[data-img]')
+  const z = zoomable(el.querySelector('[data-stage]'), imgEl)
+  const show = () => {
+    const cur = list[i]
+    imgEl.src = ui.urls[cur.path] || ''
+    imgEl.alt = cur.file_name || 'Evidence image'
+    el.querySelector('[data-count]').textContent = many ? `${i + 1} / ${list.length}` : ''
+    el.querySelector('[data-name]').textContent = cur.file_name || ''
+    z.reset()
+  }
+  const step = d => { if (many) { i = (i + d + list.length) % list.length; show() } }
+  function onKey(e) {
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); e.stopPropagation(); step(e.key === 'ArrowLeft' ? -1 : 1) }
+    else if (e.key === '+' || e.key === '=') z.zoomBy(1.5)
+    else if (e.key === '-') z.zoomBy(0.66)
+    else if (e.key === '0') z.reset()
+  }
+  document.addEventListener('keydown', onKey, true)
+  el.addEventListener('click', e => {
+    const s = e.target.closest('[data-step]'); if (s) return step(+s.dataset.step)
+    const zb = e.target.closest('[data-zoom]'); if (zb) return +zb.dataset.zoom ? z.zoomBy(+zb.dataset.zoom) : z.reset()
+  })
+  // Buttons on the image shouldn't start a drag or a double-click zoom.
+  el.querySelectorAll('.lb-nav, .lb-zoom').forEach(b => { b.addEventListener('pointerdown', e => e.stopPropagation()); b.addEventListener('dblclick', e => e.stopPropagation()) })
+  el.querySelector('[data-add]')?.addEventListener('click', () => { m.close(); ui.attachTo = img.event_id; document.querySelector('[data-file]')?.click() })
+  el.querySelector('[data-del]')?.addEventListener('click', async () => { const cur = list[i]; m.close(); try { await deleteImage(cur) } catch (err) { toast(err.message) } })
+  show()
 }
 
 const promptFor = r => chatPrompt(r, {
@@ -641,11 +679,24 @@ export async function evalPaste(e) {
   const files = imagesOf(e.clipboardData?.items || [])
   if (!files.length) return
   if (ui.adding) { e.preventDefault(); ui.pending.push(...files.map(f => ({ file: f, url: URL.createObjectURL(f) }))); hooks.render(); return }
+  // Stays on that entry, so a second and third screenshot can follow.
   const ev = ui.pasteTo && state.data.events.find(x => x.id === ui.pasteTo)
-  if (ev) { e.preventDefault(); ui.pasteTo = null; try { await addImages(ev, files) } catch (err) { toast(err.message) } }
+  if (ev) { e.preventDefault(); try { await addImages(ev, files); toast(`${files.length > 1 ? `${files.length} images` : 'Image'} added · paste again to add more`) } catch (err) { toast(err.message) } }
 }
 export function evalDrop(e) {
-  if (readOnly() || !ui.adding || !e.target.closest('.add-event')) return false
+  if (readOnly() || state.view !== 'evaluation') return false
+  document.querySelectorAll('.tl-item.drop-on').forEach(x => x.classList.remove('drop-on'))
+  if (!ui.adding || !e.target.closest('.add-event')) {
+    // Images dropped on a timeline entry are attached to it.
+    const li = e.target.closest?.('.tl-item[data-ev]')
+    const ev = li && state.data.events.find(x => x.id === li.dataset.ev)
+    if (!ev) return false
+    e.preventDefault()
+    const files = imagesOf(e.dataTransfer?.files || [])
+    if (files.length) addImages(ev, files).catch(err => toast(err.message))
+    else toast('Only images can be attached')
+    return true
+  }
   e.preventDefault()
   const files = imagesOf(e.dataTransfer?.files || [])
   if (files.length) { ui.pending.push(...files.map(f => ({ file: f, url: URL.createObjectURL(f) }))); hooks.render() }

@@ -388,7 +388,14 @@ document.addEventListener('change', async e => {
 })
 document.addEventListener('submit', e => { if (e.target.closest('#app [data-form]')) evalSubmit(e) })
 document.addEventListener('paste', e => { if (!e.target.closest('input, textarea') || e.clipboardData?.files?.length) evalPaste(e) })
-document.addEventListener('dragover', e => { if (e.target.closest('.add-event, th[data-col]')) e.preventDefault() })
+document.addEventListener('dragover', e => {
+  if (e.target.closest?.('.add-event, th[data-col]')) return e.preventDefault()
+  // Image files dragged over a timeline entry: highlight it as the drop target.
+  const li = !dragCol && e.dataTransfer?.types?.includes('Files') && e.target.closest?.('.tl-item[data-ev]')
+  document.querySelectorAll('.tl-item.drop-on').forEach(x => x !== li && x.classList.remove('drop-on'))
+  if (li) { e.preventDefault(); li.classList.add('drop-on') }
+})
+document.addEventListener('dragleave', e => { if (!e.relatedTarget) document.querySelectorAll('.tl-item.drop-on').forEach(x => x.classList.remove('drop-on')) })
 
 // Column drag: drop a header on another to move it there.
 let dragCol = null

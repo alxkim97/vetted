@@ -42,8 +42,8 @@ export function sentDialog({ title, sub, submit = 'Log as sent', onSubmit }) {
     fields: `${dateField('date', 'Sent on')}
       <div class="field">Screenshot<div class="drop-zone sent-drop" data-drop tabindex="0">
         <span class="pend-list" data-pend></span>
-        <button type="button" class="btn ghost small" data-pick>${icon('image', 15)} Add image</button>
-        <span class="muted small">or paste (Ctrl+V) or drop the LINE screenshot here</span>
+        <button type="button" class="btn ghost small" data-pick>${icon('image', 15)} Add images</button>
+        <span class="muted small">or paste (Ctrl+V) or drop the LINE screenshots here, as many as needed</span>
       </div></div>
       <input type="file" accept="image/*" multiple hidden data-file-pick>`,
     onSubmit: fd => onSubmit({ date: fd.get('date'), files: files.map(x => x.file) }),
