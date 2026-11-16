@@ -197,7 +197,7 @@ function header(r) {
         ${r.supplier ? `<span>via ${esc(r.supplier)}</span>` : ''}
         ${f.price ? `<span>฿${esc(f.price)} / kg</span>` : ''}
         ${r.rev != null ? `<span>R.${r.rev} · ${fmtDate(r.revDate)}</span>` : ''}
-        ${products.length ? `<span class="chips">${products.map(p => `<span class="chip-tag">${esc(p)}</span>`).join('')}</span>` : ''}
+        ${products.length ? `<span class="chips">${products.map(p => `<button type="button" class="chip-tag chip-btn" data-act="product" data-value="${esc(p)}" title="Formula and every evaluation for ${esc(p)}">${esc(p)}</button>`).join('')}</span>` : ''}
       </div>
     </header>`
 }

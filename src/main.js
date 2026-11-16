@@ -19,6 +19,7 @@ import { renderSettings, scanSummary } from './views/settings.js'
 import { setReceived, setStage } from './edits.js'
 import { undo, redo, hooks as undoHooks, purgeOrphans } from './undo.js'
 import { printStatusList } from './print.js'
+import { openProduct } from './views/product.js'
 
 installDmy()
 import { viewLink } from './parts.js'
@@ -310,6 +311,7 @@ document.addEventListener('click', async e => {
     if (state.view === 'evaluation' && await evalAction(act, el)) return
     switch (act) {
       case 'evaluation': return go(`/e/${id.slice(0, 8)}`)
+      case 'product': return openProduct(value)
       case 'go-pu': state.openPu = true; return go(`/e/${id.slice(0, 8)}`)
       case 'reply-pu': if (!readOnly()) openReply(); return
       case 'health-all': if (!readOnly()) openHealth(); return
