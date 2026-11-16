@@ -18,6 +18,8 @@
 //                                    --avl confirmed|differs --item 1000048 --next "..."
 //   attach     add images to an existing entry   --event <id or first 8 chars> --image <path>
 //   open       list open requests (all materials if --material is left out)
+//   reopen     undo a "received" on one request   --event <id or first 8 chars>
+//              (clears closed_on; the request counts as open again)
 //
 // Stages: --coa pass|missing|fail · --docs pass|missing|fail|pending · --qc approved|not-approved
 //         --outcome approved|not-approved|closed. The older --stamp still works (ผ่าน/ขาด/ไม่ผ่าน
@@ -42,8 +44,8 @@ for (let i = 0; i < rest.length; i++) {
 }
 
 const ACTIONS = { message: 'message_sent', requested: 'docs_requested', received: 'docs_received', verdict: 'verdict', note: 'note' }
-if (!action || !(action in ACTIONS || ['set', 'open', 'attach'].includes(action))) {
-  console.error('Usage: node scripts/rm-log.js <message|requested|received|verdict|note|set|attach|open> --material "<name>" …  (see the top of this file)')
+if (!action || !(action in ACTIONS || ['set', 'open', 'attach', 'reopen'].includes(action))) {
+  console.error('Usage: node scripts/rm-log.js <message|requested|received|verdict|note|set|attach|open|reopen> --material "<name>" …  (see the top of this file)')
   process.exit(1)
 }
 const fail = msg => { console.error(msg); process.exit(1) }
@@ -72,6 +74,18 @@ if (action === 'attach') {
   const hits = must(await supa.from('rm_events').select('id,evaluation_id,material_id')).filter(x => x.id.startsWith(opt.event))
   if (hits.length !== 1) fail(`${hits.length} entries start with ${opt.event}`)
   await attachImages(hits[0], opt.image)
+  process.exit(0)
+}
+
+if (action === 'reopen') {
+  if (!opt.event || opt.event === true) fail('--event <id> is required (the first 8 characters are enough)')
+  const hits = must(await supa.from('rm_events').select('id,kind,event_date,what,closed_on')).filter(x => x.id.startsWith(opt.event))
+  if (hits.length !== 1) fail(`${hits.length} entries start with ${opt.event}`)
+  const r = hits[0]
+  if (r.kind !== 'docs_requested') fail(`[${r.id.slice(0, 8)}] is a ${r.kind} entry; only requests can be reopened`)
+  if (!r.closed_on) { console.log(`[${r.id.slice(0, 8)}] is already open`); process.exit(0) }
+  must(await supa.from('rm_events').update({ closed_on: null }).eq('id', r.id))
+  console.log(`Reopened the ${r.event_date} request [${r.id.slice(0, 8)}] (was received ${r.closed_on}): ${r.what || ''}`)
   process.exit(0)
 }
 
