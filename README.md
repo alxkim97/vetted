@@ -15,6 +15,7 @@ from one Vite codebase, the same setup as WorkLog, and stored in WorkLog's Supab
 | `npm run scan:dry` | Print what a scan finds, write nothing (`-- --files`: what an upload would send, and its size) |
 | `npm run scan` | Scan the folder and push to Supabase (needs `.env.local`) |
 | `npm run log -- <action> …` | Log a message / request / receipt / verdict (see `scripts/rm-log.js`) |
+| `npm run file-in -- <manifest.json> [--apply]` | File new scans and sample photos into the RM folder: dry run first; copy, check, rename in place, never overwrite (see `lib/filein.js`) |
 | `npm run electron:dev` | Desktop app against the dev server |
 | `npm run electron:build` | Windows installer into `release/` |
 

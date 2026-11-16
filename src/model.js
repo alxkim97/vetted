@@ -271,6 +271,14 @@ const WORDS = {
   fail: /ไม่ผ่าน|\bfail(ed)?\b|\bnot approved\b|\brejected\b/i,
 }
 const DOC_WORDS = /\b(gmp|iso|msds|sds|fssc|halal|dmf|licen[cs]e|certificates?|docs?)\b|เอกสาร/i
+// Does this form's name say the verdict v (pass / gap / fail)?
+const formSays = (name, v) => {
+  const n = noteOf(name)
+  return v === 'pass' ? WORDS.pass.test(n) && !WORDS.fail.test(n) : v === 'fail' ? WORDS.fail.test(n) : v === 'gap' ? WORDS.gap.test(n) && !WORDS.fail.test(n) : false
+}
+// The verdict words a signed form's name carries, e.g. ['pass', 'gap'] for
+// "(Reviewer Annotated - CoA ผ่าน, GMP ขาด)". file-in shows them before filing.
+export const formWords = name => isAnnotatedForm(name) ? ['pass', 'gap', 'fail'].filter(v => formSays(name, v)) : []
 // Dates for the CoA and Docs stages from the forms (YYYY-MM-DD, or null).
 // CoA: the first form from the evaluation's start whose note says the current
 // verdict (no verdict word, no date: a bare "Reviewer Annotated" pack may be a
@@ -279,10 +287,7 @@ const DOC_WORDS = /\b(gmp|iso|msds|sds|fssc|halal|dmf|licen[cs]e|certificates?|d
 // ("CoA and GMP ผ่าน"); a form whose note is about the CoA only doesn't count.
 export function formStageDates(forms, stages, { from, revDate } = {}) {
   const list = forms.filter(x => x.doc_date && isAnnotatedForm(x.name)).sort((a, b) => a.doc_date.localeCompare(b.doc_date))
-  const says = (x, v) => {
-    const n = noteOf(x.name)
-    return v === 'pass' ? WORDS.pass.test(n) && !WORDS.fail.test(n) : v === 'fail' ? WORDS.fail.test(n) : v === 'gap' ? WORDS.gap.test(n) && !WORDS.fail.test(n) : false
-  }
+  const says = (x, v) => formSays(x.name, v)
   const after = d => x => !d || x.doc_date >= d
   let coaForm = null
   if (stages.coa != null) coaForm = list.filter(after(from)).find(x => says(x, stages.coa)) || null

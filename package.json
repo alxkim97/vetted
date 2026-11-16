@@ -15,6 +15,7 @@
     "scan": "node scripts/scan.js",
     "scan:dry": "node scripts/scan.js --dry",
     "check": "node scripts/check.js",
+    "file-in": "node scripts/file-in.js",
     "demo:data": "node scripts/make-demo.js",
     "log": "node scripts/rm-log.js",
     "electron": "electron .",
