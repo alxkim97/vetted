@@ -113,6 +113,7 @@ export function openModal(html, { onClose, wide } = {}) {
   const close = () => {
     if (!overlay.isConnected) return
     stack.splice(stack.indexOf(entry), 1)
+    if (!stack.length) document.documentElement.classList.remove('modal-open')
     overlay.classList.remove('open')
     setTimeout(() => overlay.remove(), 180)
     prevFocus?.focus?.()
@@ -120,6 +121,7 @@ export function openModal(html, { onClose, wide } = {}) {
   }
   const entry = { close }
   stack.push(entry)
+  document.documentElement.classList.add('modal-open') // the page behind doesn't scroll
   overlay.addEventListener('mousedown', e => { if (e.target === overlay) close() })
   overlay.querySelectorAll('[data-close]').forEach(b => b.addEventListener('click', close))
   return { el: overlay.querySelector('.modal'), close }

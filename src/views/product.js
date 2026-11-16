@@ -45,7 +45,7 @@ export function openProduct(name) {
       </li>`).join('')}
     </ol>` : `<p class="pf-empty">The formula for ${esc(name)} isn't loaded in Vetted yet${p?.code ? ` (${esc(p.code)})` : ''}.</p>`
 
-  openModal(`
+  const m = openModal(`
     <div class="modal-head pf-head">
       <div>
         <p class="eyebrow">${[p?.code ? `FG ${esc(p.code)}` : '', p ? esc(PROJECTS[p.project] || '') : ''].filter(Boolean).join(' · ') || 'Product'}</p>
@@ -58,4 +58,5 @@ export function openProduct(name) {
       ${body}
       ${extra.length ? `<p class="pf-sub">${bom.length ? 'Also evaluated for this product' : 'Evaluated for this product'}</p><div class="pf-evals pf-extra">${extra.map(r => evalLine({ ...r, candidate: `${r.materialName}${r.candidate ? ` · ${r.candidate}` : ''}` })).join('')}</div>` : ''}
     </div>`, { wide: true })
+  m.el.classList.add('pf-modal')
 }
