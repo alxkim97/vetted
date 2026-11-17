@@ -44,6 +44,12 @@
 .attn-main span { font-size: 12.5px; color: var(--text2); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .attn-sec { font-size: 11.5px; color: var(--text3); font-weight: 600; white-space: nowrap; padding-top: 2px; }
 .tchip { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 8px; border-radius: 99px; font-size: 11.5px; font-weight: 700; background: var(--cw); color: var(--c); white-space: nowrap; }
+/* Section heading counts: grey, with the same marks as the Part 2 count capsule (cmp.css) */
+.fe-sec > summary .tchip { background: var(--surface-2); color: var(--text); gap: 5px; }
+.fe-sec > summary .tchip::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; }
+.fe-sec > summary .tchip.t-confirm::before { background: var(--yellow, #ffd60a); box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 20%, transparent); }
+.fe-sec > summary .tchip.t-missing::before { box-shadow: inset 0 0 0 1.5px var(--text3); }
+.fe-sec > summary .tchip.t-fail::before { background: var(--text); border-radius: 2px; }
 
 .fe-sections { display: flex; flex-direction: column; gap: 12px; }
 .fe-sec { background: var(--surface); border-radius: var(--r-lg); }

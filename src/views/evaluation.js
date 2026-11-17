@@ -85,9 +85,8 @@ function grid(b, si, bi) {
     </table></div>
     ${issuesOnly && rows.length < b.rows.length ? `<p class="xl-count">${rows.length} of ${b.rows.length} rows shown</p>` : ''}`
 }
-// Part 2 in the QC-sheet layout: one row per test, one coloured column per
-// source (tick, limit, bold result line), heavy rules between sources. Printed
-// on a fixed light "paper" so it reads like the PDF in either app theme. On a
+// Part 2 in the QC-sheet layout: one row per test, one column per source
+// (tick, limit, bold result line), in the app's greys (src/cmp.css). On a
 // narrow screen each test becomes a card.
 const KIND = { ref: 'ref', apm: 'apm', inc: 'inc', cand: 'cand' }
 const SYM = { pass: '✓ ', confirm: '! ', missing: '– ', fail: '✕ ' }
@@ -117,7 +116,7 @@ function cmpGrid(t, b, si, bi) {
     const v = r.verdict
     return `<tr id="r-${si}-${bi}-${r.ri}"${flag ? ` class="flag t-${r.tone}"` : ''}><td class="test"><span class="no">${esc(r.no)}</span>${md(r.test)}${flag ? ' <b class="bang">!</b>' : ''}</td>${cells}<td class="vcell"><span class="vd t-${r.tone || 'other'}">${SYM[r.tone] ?? ''}${esc(v.word)}</span>${v.rest ? `<span class="vnote">${md(v.rest)}</span>` : ''}</td></tr>`
   }).join('')
-  return `<div class="cmp-top">${tickPop(t)}<div class="cmp-chips">${['pass', 'confirm', 'missing', 'fail'].map(k => `<span class="cchip k-${k}">${counts[k]} ${TONE_LABEL[k]}</span>`).join('')}</div></div>
+  return `<div class="cmp-top">${tickPop(t)}<div class="cmp-chips">${['pass', 'confirm', 'missing', 'fail'].map(k => `<span class="cchip k-${k}${counts[k] ? '' : ' zero'}">${counts[k]} ${TONE_LABEL[k]}</span>`).join('')}</div></div>
     <div class="cmp-paper"><div class="cmp-scroll"><table class="cmpv"><thead>${head}</thead><tbody>${body}</tbody></table></div></div>
     ${issuesOnly && shown.length < t.rows.length ? `<p class="xl-count">Flagged rows only</p>` : ''}`
 }
