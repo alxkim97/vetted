@@ -2,6 +2,7 @@ import './style.css'
 import './register.css'
 import './apple.css'
 import './evaluation.css'
+import './cmp.css'
 import './v7.css'
 import './tools.css'
 import './busy.js'
@@ -351,6 +352,7 @@ document.addEventListener('click', async e => {
       case 'jump': return jumpTo(value)
       case 'note': return jumpTo(`note-${value}`)
       case 'issues-only': savePrefs({ issuesOnly: value === '1' }); return render()
+      case 'tick-sum': { const w = el.closest('.tsw'); document.querySelectorAll('.tsw.open').forEach(x => x !== w && x.classList.remove('open')); return w?.classList.toggle('open') }
       case 'print-list': closeMenu(); return printStatusList(visibleRows())
       case 'export': closeMenu(); return exportCsv()
       case 'menu-filters': return reopen('filters', openFilters)

@@ -5,7 +5,8 @@ import { state, readOnly } from '../store.js'
 import { STATUS, STAGES, OUTCOMES, EVENT_KINDS, STATIONS, SAMPLE_STEPS, fmtDate, todayIso, waitTone, productNames, daysBetween } from '../model.js'
 import { esc, icon, openModal, toast, confirmBox, openMenu, closeMenu, copyText } from '../ui.js'
 import { pill, viewLink, evalHash } from '../parts.js'
-import { parseDoc, issuesOf, tally, toEnglish, cellGap, plain } from '../../lib/doc.js'
+import { parseDoc, issuesOf, tally, toEnglish, cellGap, plain, listTree } from '../../lib/doc.js'
+import { cmpTable, tickSummary } from '../../lib/cmp.js'
 import { stampToStages } from '../../lib/parse.js'
 import { COLUMN, setStage, saveFields, addEntry, deleteEntry, addImages, deleteImage, logSent, setReceived, setQcResult, setDecisionDate } from '../edits.js'
 import { evidenceUrls, fileUrl } from '../data.js'
@@ -84,20 +85,58 @@ function grid(b, si, bi) {
     </table></div>
     ${issuesOnly && rows.length < b.rows.length ? `<p class="xl-count">${rows.length} of ${b.rows.length} rows shown</p>` : ''}`
 }
+// Part 2 in the QC-sheet layout: one row per test, one coloured column per
+// source (tick, limit, bold result line), heavy rules between sources. Printed
+// on a fixed light "paper" so it reads like the PDF in either app theme. On a
+// narrow screen each test becomes a card.
+const KIND = { ref: 'ref', apm: 'apm', inc: 'inc', cand: 'cand' }
+const SYM = { pass: '✓ ', confirm: '! ', missing: '– ', fail: '✕ ' }
+const tbox = on => `<i class="cbox${on ? ' on' : ''}"></i>`
+function tickPop(t) {
+  const sum = tickSummary(t)
+  const th = t.cols.map((c, k) => `<th class="${KIND[c.kind]}">${esc(c.name)}<small>${sum.counts[k]} of ${sum.total}</small></th>`).join('')
+  const body = sum.groups.map(g => `<tr class="g"><td class="t">${esc(g.name)} (${g.rows.length})</td>${t.cols.map((c, k) => `<td class="n">${g.counts[k]} of ${g.rows.length}</td>`).join('')}</tr>` +
+    g.rows.map(r => `<tr><td class="t">${esc(r.no)} ${md(r.test, { notes: false })}</td>${r.cells.map(c => `<td class="${KIND[c.kind]}">${tbox(c.has)}</td>`).join('')}</tr>`).join('')).join('')
+  return `<span class="tsw"><button type="button" class="tsw-btn" data-act="tick-sum" aria-haspopup="true">Tick summary</button>
+    <div class="tpop"><div class="tpop-in"><b class="tpop-h">Which source has which test</b>
+      <div class="tscroll"><table><thead><tr><th class="plain">Test</th>${th}</tr></thead><tbody>${body}</tbody></table></div>
+      <p>Ticks only. Limits and results are in the table.</p></div></div></span>`
+}
+function cmpGrid(t, b, si, bi) {
+  const issuesOnly = state.prefs.issuesOnly
+  const counts = { pass: 0, confirm: 0, missing: 0, fail: 0 }
+  t.rows.forEach(r => { if (r.tone in counts) counts[r.tone]++ })
+  const shown = t.rows.filter(r => !issuesOnly || (!r.divider && FLAGGED.includes(r.tone)))
+  if (!shown.some(r => !r.divider)) return issuesOnly ? `<p class="xl-none">${icon('check', 15)} Nothing flagged in this table.</p>` : ''
+  const head = `<tr><th class="plain c-test">Test</th>${t.cols.map(c => `<th class="csrc ${KIND[c.kind]}">${esc(c.name)}${c.ed ? `<small class="ed">${esc(c.ed)}</small>` : ''}${c.lot ? `<small>${esc(c.lot)}</small>` : ''}</th>`).join('')}<th class="vh">Verdict</th></tr>`
+  const body = shown.map(r => {
+    if (r.divider) return `<tr class="div"><td colspan="${t.cols.length + 2}">${esc(r.divider)}</td></tr>`
+    const flag = FLAGGED.includes(r.tone)
+    const cells = r.cells.map((c, k) => `<td class="csrc ${KIND[c.kind]}" data-label="${esc(t.cols[k].name)}">${tbox(c.has)}<div class="tx">${
+      c.spec ? `<span>${md(c.spec)}</span>` : ''}${c.result ? `<span class="rs${c.noResult ? ' none' : ''}">${md(c.result)}</span>` : ''}${!c.spec && !c.result ? '<span class="dash">—</span>' : ''}</div></td>`).join('')
+    const v = r.verdict
+    return `<tr id="r-${si}-${bi}-${r.ri}"${flag ? ' class="flag"' : ''}><td class="test"><span class="no">${esc(r.no)}</span>${md(r.test)}${flag ? ' <b class="bang">!</b>' : ''}</td>${cells}<td class="vcell"><span class="vd t-${r.tone || 'other'}">${SYM[r.tone] ?? ''}${esc(v.word)}</span>${v.rest ? `<span class="vnote">${md(v.rest)}</span>` : ''}</td></tr>`
+  }).join('')
+  return `<div class="cmp-top">${tickPop(t)}<div class="cmp-chips">${['pass', 'confirm', 'missing', 'fail'].map(k => `<span class="cchip k-${k}">${counts[k]} ${TONE_LABEL[k]}</span>`).join('')}</div></div>
+    <div class="cmp-paper"><div class="cmp-scroll"><table class="cmpv"><thead>${head}</thead><tbody>${body}</tbody></table></div></div>
+    ${issuesOnly && shown.length < t.rows.length ? `<p class="xl-count">Flagged rows only</p>` : ''}`
+}
+function listHtml(nodes, sec, top) {
+  const ordered = nodes[0]?.num != null
+  const tag = ordered ? 'ol' : 'ul'
+  return `<${tag} class="fe-list">${nodes.map((n, k) => {
+    const id = top && sec.kind === 'notes' ? noteId(n.text) ?? (n.num != null ? String(n.num) : null) : null
+    return `<li${id ? ` id="note-${esc(id)}"` : ''}${ordered && n.num != null ? ` value="${n.num}"` : ''}>${md(n.text)}${n.children.length ? listHtml(n.children, sec, false) : ''}</li>`
+  }).join('')}</${tag}>`
+}
 const noteId = text => plain(text).match(/^Note (\d+[a-z]?)\b/)?.[1]
 function block(b, si, bi, sec) {
   switch (b.type) {
-    case 'table': return grid(b, si, bi)
+    case 'table': { const t = cmpTable(b); return t ? cmpGrid(t, b, si, bi) : grid(b, si, bi) }
     case 'h': return `<h4 class="fe-sub">${md(b.text)}</h4>`
     case 'quote': return `<blockquote class="fe-quote">${md(b.text).replace(/\n/g, '<br>')}</blockquote>`
     case 'code': return `<pre class="fe-code">${esc(b.text)}</pre>`
-    case 'list': {
-      const tag = b.ordered ? 'ol' : 'ul'
-      return `<${tag} class="fe-list">${b.items.map((it, k) => {
-        const n = sec.kind === 'notes' ? noteId(it) ?? (b.ordered ? String(k + 1) : null) : null
-        return `<li${n ? ` id="note-${esc(n)}"` : ''}>${md(it)}</li>`
-      }).join('')}</${tag}>`
-    }
+    case 'list': return listHtml(listTree(b), sec, true)
     default: {
       const n = sec.kind === 'notes' ? noteId(b.text) : null
       return `<p class="fe-p"${n ? ` id="note-${esc(n)}"` : ''}>${md(b.text)}</p>`

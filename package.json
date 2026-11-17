@@ -1,6 +1,6 @@
 {
   "name": "vetted",
-  "version": "0.13.1",
+  "version": "0.14.0",
   "private": true,
   "description": "Vetted — every APm raw material evaluation in one filterable grid",
   "author": "Alex · APm R&D",
@@ -15,6 +15,7 @@
     "scan": "node scripts/scan.js",
     "scan:dry": "node scripts/scan.js --dry",
     "check": "node scripts/check.js",
+    "pdf": "node scripts/render-pdf.js",
     "file-in": "node scripts/file-in.js",
     "demo:data": "node scripts/make-demo.js",
     "log": "node scripts/rm-log.js",
