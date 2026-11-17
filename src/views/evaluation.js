@@ -6,7 +6,7 @@ import { STATUS, STAGES, OUTCOMES, EVENT_KINDS, STATIONS, SAMPLE_STEPS, fmtDate,
 import { esc, icon, openModal, toast, confirmBox, openMenu, closeMenu, copyText } from '../ui.js'
 import { pill, viewLink, evalHash } from '../parts.js'
 import { parseDoc, issuesOf, tally, toEnglish, cellGap, plain, listTree } from '../../lib/doc.js'
-import { cmpTable, tickSummary } from '../../lib/cmp.js'
+import { cmpTable, legacyTable, tickSummary } from '../../lib/cmp.js'
 import { stampToStages } from '../../lib/parse.js'
 import { COLUMN, setStage, saveFields, addEntry, deleteEntry, addImages, deleteImage, logSent, setReceived, setQcResult, setDecisionDate } from '../edits.js'
 import { evidenceUrls, fileUrl } from '../data.js'
@@ -115,7 +115,7 @@ function cmpGrid(t, b, si, bi) {
     const cells = r.cells.map((c, k) => `<td class="csrc ${KIND[c.kind]}" data-label="${esc(t.cols[k].name)}">${tbox(c.has)}<div class="tx">${
       c.spec ? `<span>${md(c.spec)}</span>` : ''}${c.result ? `<span class="rs${c.noResult ? ' none' : ''}">${md(c.result)}</span>` : ''}${!c.spec && !c.result ? '<span class="dash">—</span>' : ''}</div></td>`).join('')
     const v = r.verdict
-    return `<tr id="r-${si}-${bi}-${r.ri}"${flag ? ' class="flag"' : ''}><td class="test"><span class="no">${esc(r.no)}</span>${md(r.test)}${flag ? ' <b class="bang">!</b>' : ''}</td>${cells}<td class="vcell"><span class="vd t-${r.tone || 'other'}">${SYM[r.tone] ?? ''}${esc(v.word)}</span>${v.rest ? `<span class="vnote">${md(v.rest)}</span>` : ''}</td></tr>`
+    return `<tr id="r-${si}-${bi}-${r.ri}"${flag ? ` class="flag t-${r.tone}"` : ''}><td class="test"><span class="no">${esc(r.no)}</span>${md(r.test)}${flag ? ' <b class="bang">!</b>' : ''}</td>${cells}<td class="vcell"><span class="vd t-${r.tone || 'other'}">${SYM[r.tone] ?? ''}${esc(v.word)}</span>${v.rest ? `<span class="vnote">${md(v.rest)}</span>` : ''}</td></tr>`
   }).join('')
   return `<div class="cmp-top">${tickPop(t)}<div class="cmp-chips">${['pass', 'confirm', 'missing', 'fail'].map(k => `<span class="cchip k-${k}">${counts[k]} ${TONE_LABEL[k]}</span>`).join('')}</div></div>
     <div class="cmp-paper"><div class="cmp-scroll"><table class="cmpv"><thead>${head}</thead><tbody>${body}</tbody></table></div></div>
@@ -132,7 +132,11 @@ function listHtml(nodes, sec, top) {
 const noteId = text => plain(text).match(/^Note (\d+[a-z]?)\b/)?.[1]
 function block(b, si, bi, sec) {
   switch (b.type) {
-    case 'table': { const t = cmpTable(b); return t ? cmpGrid(t, b, si, bi) : grid(b, si, bi) }
+    case 'table': {
+      // older 9-column Part 2 tables are drawn in the new layout too (app only)
+      const t = cmpTable(b) ?? (sec.kind === 'part2' ? legacyTable(b) : null)
+      return t ? cmpGrid(t, b, si, bi) : grid(b, si, bi)
+    }
     case 'h': return `<h4 class="fe-sub">${md(b.text)}</h4>`
     case 'quote': return `<blockquote class="fe-quote">${md(b.text).replace(/\n/g, '<br>')}</blockquote>`
     case 'code': return `<pre class="fe-code">${esc(b.text)}</pre>`
