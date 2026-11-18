@@ -470,11 +470,17 @@ async function loadFileSrc(path) {
 }
 
 // Signed links for evidence thumbnails not loaded yet.
+// A link that failed or came back empty is dropped from the cache so the next render asks again
+// (capped at 3 tries per image so a missing file cannot loop).
+const urlTries = {}
 async function loadUrls(r) {
-  const need = r.events.flatMap(ev => evidenceOf(ev.id)).map(x => x.path).filter(p => !(p in ui.urls))
+  const need = r.events.flatMap(ev => evidenceOf(ev.id)).map(x => x.path).filter(p => !(p in ui.urls) && (urlTries[p] || 0) < 3)
   if (!need.length) return
-  need.forEach(p => { ui.urls[p] = '' })
-  try { Object.assign(ui.urls, await evidenceUrls(need)); hooks.render() } catch (err) { toast(err.message) }
+  need.forEach(p => { ui.urls[p] = ''; urlTries[p] = (urlTries[p] || 0) + 1 })
+  let got = {}
+  try { got = (await evidenceUrls(need)) || {} } catch (err) { toast(err.message) }
+  need.forEach(p => { if (got[p]) { ui.urls[p] = got[p] } else delete ui.urls[p] })
+  if (Object.keys(got).length) hooks.render()
 }
 
 export function renderEvaluation() {
