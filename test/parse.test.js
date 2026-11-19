@@ -21,8 +21,8 @@ test('revision from file name', () => {
 
 test('grade and candidate from folders', () => {
   assert.deepEqual(gradeAndCandidate(['Supplier B'], 'Etoricoxib (Supplier B) CoA Comparison (R.2_261027).md', 'Etoricoxib'), { grade: null, candidate: 'Supplier B' })
-  assert.deepEqual(gradeAndCandidate(['E15'], 'HPMC E15 CoA Comparison 260701 (R.1_260703).md', 'HPMC (Hypromellose)'), { grade: 'E15', candidate: null })
-  assert.deepEqual(gradeAndCandidate(['USP Grade'], 'Nitrofurazone (USP Grade) CoA Comparison (R.5_260828).md', 'Nitrofurazone'), { grade: 'USP Grade', candidate: null })
+  assert.deepEqual(gradeAndCandidate(['Supplier E'], 'LLP CoA Comparison 260701 (R.3_260702).md', 'Light Liquid Paraffin (Light Mineral Oil)'), { grade: null, candidate: 'Supplier E' })
+  assert.deepEqual(gradeAndCandidate(['USP Grade', 'Supplier F'], 'Nitrofurazone (USP Grade) CoA Comparison (R.5_260828).md', 'Nitrofurazone'), { grade: 'USP Grade', candidate: 'Supplier F' })
   assert.deepEqual(gradeAndCandidate(['PH101', 'Supplier C'], 'MCC Supplier C CoA Comparison 260716 (R.5_260716).md', 'Microcrystalline Cellulose'), { grade: 'PH101', candidate: 'Supplier C' })
   assert.deepEqual(gradeAndCandidate([], 'Magnesium Hydroxide (Heavy) CoA Comparison 260821 (R.1_260821).md', 'Magnesium Hydroxide (Heavy)'), { grade: null, candidate: null })
   assert.deepEqual(gradeAndCandidate([], 'Diclofenac Diethylamine (Supplier D) CoA Comparison 261028 (R.1_261028).md', 'Diclofenac Diethylamine'), { grade: null, candidate: 'Supplier D' })
