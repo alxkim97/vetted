@@ -54,7 +54,7 @@ export function renderSettings() {
         <p class="setting-line">${esc(scanSummary(run))}</p>
         ${isDesktop() ? `
           <label class="field">RM evaluation folder
-            <input id="root" value="${esc(state.prefs.root)}" placeholder="Default: Everything\\APm Drug Files\\General\\Raw Material Evaluation Document"></label>
+            <input id="root" value="${esc(state.prefs.root)}" placeholder="Default: Everything\\APm Drug Files\\2 Raw Materials\\Evaluation"></label>
           <label class="check-line" style="margin-top:12px"><input type="checkbox" id="upload-files" ${state.prefs.uploadFiles ? 'checked' : ''}> Upload each candidate's latest Selection Form and CoA, so the web and view links can show them</label>
           <div class="row-gap" style="margin-top:12px"><button class="btn primary small" data-act="scan">${icon('sync', 15)} Re-scan now</button></div>`
           : `<p class="muted">Scans read the folder on the work PC, so they run from the desktop app or the daily scheduled task. This page shows the result of the last one.</p>`}

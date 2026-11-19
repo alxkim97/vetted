@@ -4,7 +4,7 @@
 import { productNames, fmtDate } from './model.js'
 import { plain, tally, issuesOf } from '../lib/doc.js'
 
-export const DEFAULT_ROOT = 'C:\\Users\\RDAlex2\\Desktop\\Everything\\APm Drug Files\\General\\Raw Material Evaluation Document'
+export const DEFAULT_ROOT = 'C:\\Users\\RDAlex2\\Desktop\\Everything\\APm Drug Files\\2 Raw Materials\\Evaluation'
 
 // Lines the comparison file states in its header.
 export function facts(body) {
