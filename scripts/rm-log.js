@@ -15,7 +15,7 @@
 //   verdict    CoA verdict issued    --coa ขาด --what "one-line reason" [--next "next action"]
 //   note       free note             --note "..."
 //   set        update fields only    --coa --docs --qc --outcome --supplier --manufacturer
-//                                    --avl confirmed|differs --item 1000048 --next "..."
+//                                    --avl confirmed|differs --item 1001xxx --next "..."
 //   attach     add images to an existing entry   --event <id or first 8 chars> --image <path>
 //   open       list open requests (all materials if --material is left out)
 //   reopen     undo a "received" on one request   --event <id or first 8 chars>
@@ -51,6 +51,14 @@ if (!action || !(action in ACTIONS || ['set', 'open', 'attach', 'reopen'].includ
 const fail = msg => { console.error(msg); process.exit(1) }
 const { supa } = serviceClient()
 const must = ({ data, error }) => { if (error) fail(error.message); return data }
+async function readAll(build) {
+  const rows = []
+  for (let from = 0; ; from += 1000) {
+    const data = must(await build().range(from, from + 999))
+    rows.push(...data)
+    if (data.length < 1000) return rows
+  }
+}
 const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10) // Bangkok date
 const date = opt.date ? toIsoDate(opt.date) || fail(`--date ${opt.date} isn't YYMMDD`) : today
 
@@ -71,7 +79,7 @@ async function attachImages(ev, paths) {
 if (action === 'attach') {
   if (!opt.event || opt.event === true) fail('--event <id> is required (rm-log open shows the first 8 characters)')
   if (!opt.image.length) fail('--image <path> is required')
-  const hits = must(await supa.from('rm_events').select('id,evaluation_id,material_id')).filter(x => x.id.startsWith(opt.event))
+  const hits = (await readAll(() => supa.from('rm_events').select('id,evaluation_id,material_id'))).filter(x => x.id.startsWith(opt.event))
   if (hits.length !== 1) fail(`${hits.length} entries start with ${opt.event}`)
   await attachImages(hits[0], opt.image)
   process.exit(0)
@@ -79,7 +87,7 @@ if (action === 'attach') {
 
 if (action === 'reopen') {
   if (!opt.event || opt.event === true) fail('--event <id> is required (the first 8 characters are enough)')
-  const hits = must(await supa.from('rm_events').select('id,kind,event_date,what,closed_on')).filter(x => x.id.startsWith(opt.event))
+  const hits = (await readAll(() => supa.from('rm_events').select('id,kind,event_date,what,closed_on'))).filter(x => x.id.startsWith(opt.event))
   if (hits.length !== 1) fail(`${hits.length} entries start with ${opt.event}`)
   const r = hits[0]
   if (r.kind !== 'docs_requested') fail(`[${r.id.slice(0, 8)}] is a ${r.kind} entry; only requests can be reopened`)
@@ -106,6 +114,7 @@ if (action === 'open') {
 }
 
 if (!opt.material) fail('--material is required')
+if (action === 'received' && opt.close === true) fail('--close needs the request id (rm-log open shows it), or "all" to close every open request on this evaluation')
 const lc = s => String(s ?? '').toLowerCase()
 const matHits = mats.filter(m => lc(m.folder).includes(lc(opt.material)))
 if (!matHits.length) fail(`No material folder matches "${opt.material}"`)
@@ -139,7 +148,10 @@ if (Object.keys(patch).length) {
   must(await supa.from('rm_evaluations').update(patch).eq('id', ev.id))
   console.log(`Updated ${label(ev)}: ${Object.keys(patch).join(', ')}`)
   // Each changed stage is also a dated stage entry (v0.7), so Vetted knows since when.
-  const stages = [...STAGE_KEYS, 'avl_listed'].filter(k => k in patch && String(patch[k]) !== String(old[k]))
+  // Skip a stage whose latest entry already has this value (a scan may have logged it from the file).
+  const last = {}
+  for (const x of must(await supa.from('rm_events').select('what,note,event_date,created_at').eq('evaluation_id', ev.id).eq('kind', 'stage').order('event_date').order('created_at'))) last[x.what] = x.note
+  const stages = [...STAGE_KEYS, 'avl_listed'].filter(k => k in patch && String(patch[k]) !== String(old[k]) && last[k === 'avl_listed' ? 'avl' : k] !== String(patch[k]))
     .map(k => ({ material_id: mat.id, evaluation_id: ev.id, kind: 'stage', event_date: date, what: k === 'avl_listed' ? 'avl' : k, note: patch[k] == null ? null : String(patch[k]), source: 'chat' }))
   if (stages.length) {
     const { error } = await supa.from('rm_events').insert(stages)

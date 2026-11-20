@@ -44,6 +44,8 @@ function createWindow() {
 // lib/ is ESM (shared with scripts/scan.js), so it's loaded with import().
 // The push runs as the signed-in user (their access token), so RLS applies
 // exactly as it does in the app — no service key on this side.
+// True when target is base itself or inside it (a plain prefix test would let a sibling like base + '2' through).
+const within = (target, base) => target === base || target.startsWith(base + path.sep)
 const lib = name => import(pathToFileURL(path.join(__dirname, 'lib', name)).href)
 let lastRoot = null
 
@@ -72,7 +74,7 @@ ipcMain.handle('pdf:save', async (_e, { html, name, rel, root }) => {
   }
   const dir = path.resolve(base, rel || '')
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
-    defaultPath: path.join(dir.startsWith(base) && fs.existsSync(dir) ? dir : base, fileName),
+    defaultPath: path.join(within(dir, base) && fs.existsSync(dir) ? dir : base, fileName),
     filters: [{ name: 'PDF', extensions: ['pdf'] }],
   })
   if (canceled || !filePath) return null
@@ -91,7 +93,7 @@ ipcMain.handle('file:open', async (_e, { root, rel }) => {
   const { DEFAULT_ROOT } = await lib('scanner.js')
   const base = path.resolve(root || lastRoot || DEFAULT_ROOT)
   const target = path.resolve(base, rel)
-  if (!target.startsWith(base)) throw new Error('Path is outside the RM folder')
+  if (!within(target, base)) throw new Error('Path is outside the RM folder')
   const err = await shell.openPath(target)
   if (err) throw new Error(err)
 })
