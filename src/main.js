@@ -13,7 +13,7 @@ import { state, savePrefs, setData, cacheData, restoreCache, clearCache, readOnl
 import { esc, icon, toast, closeTopModal, modalOpen, openMenu, closeMenu, copyText } from './ui.js'
 import { renderAuth, renderNotMember, renderNoTables } from './views/auth.js'
 import { renderOverview, overviewSummary, overviewActions } from './views/overview.js'
-import { openReply, openHealth, toolsMenuItems } from './views/tools.js'
+import { openReply, openHealth, toolsMenuItems, toggleSamples } from './views/tools.js'
 import { renderEvaluations, visibleRows, exportCsv, filtersMenuHtml, viewMenuItems, colFilterMenuHtml, setShown, columnOrder } from './views/evaluations.js'
 import { renderEvaluation, evalAction, evalChange, evalSubmit, evalPaste, evalDrop, stageMenu, handoffMenu, copyPromptFor, hooks as evalHooks, TAB_IDS } from './views/evaluation.js'
 import { renderSettings, scanSummary } from './views/settings.js'
@@ -311,6 +311,7 @@ document.addEventListener('click', async e => {
   try {
     if (state.view === 'evaluation' && await evalAction(act, el)) return
     switch (act) {
+      case 'samples-more': toggleSamples(); return render()
       case 'evaluation': return go(`/e/${id.slice(0, 8)}`)
       case 'product': return openProduct(value)
       case 'go-pu': state.openPu = true; return go(`/e/${id.slice(0, 8)}`)

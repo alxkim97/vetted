@@ -70,13 +70,15 @@ export function sentDialog({ title, sub, submit = 'Log as sent', onSubmit }) {
 
 // ── QC samples and expiring documents (Overview cards) ──
 const STEP_NOW = { requested: 'Not requested yet', received: 'Waiting for the sample', sent: 'Received, not sent to QC yet', result: 'With QC for testing' }
+let samplesAll = false
+export const toggleSamples = () => { samplesAll = !samplesAll }
 export function samplesCard() {
   const rows = state.rows.filter(r => r.sample?.open && !r.stages.outcome).sort((a, b) => (b.sample.waitingDays ?? -1) - (a.sample.waitingDays ?? -1))
   if (!rows.length) return ''
   return `
     <section class="hcard samplec">
       <div class="hcard-head"><h2>${icon('flask', 18)} QC samples <span class="count">${rows.length}</span></h2><span class="hsub">Requested → received → sent to QC → result</span></div>
-      <div class="list">${rows.slice(0, 6).map(r => {
+      <div class="list">${(samplesAll ? rows : rows.slice(0, 6)).map(r => {
         const s = r.sample
         return `<div class="lrow sample-row" data-act="evaluation" data-id="${r.id}" tabindex="0">
           <span class="lmain"><b>${who(r)}</b><span>${esc(STEP_NOW[s.now])}${s.now === 'result' ? '' : s.holder && s.holder !== 'RD' ? ` · with ${esc(s.holder)}` : ' · your move'}</span></span>
@@ -84,7 +86,7 @@ export function samplesCard() {
           <span class="wait w-${waitTone(s.waitingDays)}">${s.waitingDays ?? 0} d</span>
         </div>`
       }).join('')}</div>
-      ${rows.length > 6 ? `<p class="ag-more">${rows.length - 6} more on their evaluation pages</p>` : ''}
+      ${rows.length > 6 ? `<button class="more-link" data-act="samples-more">${samplesAll ? 'Show fewer' : `${rows.length - 6} more · show all`}</button>` : ''}
     </section>`
 }
 export const sampleDots = s => `<span class="sdots" aria-label="${esc(s.steps.map(x => `${x.label}: ${x.date ? fmtDate(x.date) : 'not yet'}`).join(', '))}">${s.steps.map(x => `<i class="${x.done ? 'done' : x.key === s.now ? 'now' : ''}${x.key === 'result' && s.result === 'not_approved' ? ' bad' : ''}" title="${esc(`${x.label}${x.date ? ` · ${fmtDate(x.date)}` : ''}`)}"></i>`).join('')}</span>`
