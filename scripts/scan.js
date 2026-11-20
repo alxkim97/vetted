@@ -15,7 +15,8 @@ if (process.argv.includes('--dry')) {
     const t = e.tracker
     console.log([e.material_folder, e.grade || '', t.candidate || e.candidate || '', e.rev != null ? `R.${e.rev}` : 'no file', t.outcome || t.coa || (e.verdict_line ? 'verdict line' : 'not readable')].join(' | '))
   }
-  console.log(`\n${scan.materials.length} materials · ${scan.evaluations.length} evaluations · ${scan.events.length} document folders`)
+  console.log(`\n${scan.materials.length} materials · ${scan.evaluations.length} evaluations · ${scan.events.length} document folders · ${scan.files.filter(f => f.sample).length} sample photos`)
+  for (const x of scan.skipped) console.log(`skipped: ${x.rel} (${x.why})`)
   process.exit(0)
 }
 
@@ -23,6 +24,7 @@ const { serviceClient } = await import('./env.js')
 const { supa } = serviceClient()
 try {
   const r = await pushScan(supa, scan, arg('--trigger') || 'cli', { upload: process.argv.includes('--upload') })
+  for (const x of scan.skipped) console.log(`skipped: ${x.rel} (${x.why})`)
   console.log(`Scanned ${r.materials} materials · ${r.evaluations} evaluations · ${r.events_added} new document folders${r.uploaded ? ` · ${r.uploaded} files uploaded` : ''}`)
 } catch (e) {
   console.error('Scan failed:', e.message || e)

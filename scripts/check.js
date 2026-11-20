@@ -17,7 +17,7 @@ if (!target) { console.error('Usage: npm run check -- "<material folder>" [--jso
 const ls = p => { try { return readdirSync(p, { withFileTypes: true }) } catch { return [] } }
 const files = p => ls(p).filter(e => e.isFile()).map(e => e.name)
 const subdirs = p => ls(p).filter(e => e.isDirectory()).map(e => e.name)
-const SKIP = new Set(['Old', 'References', 'Document'])
+const SKIP = new Set(['Old', 'References', 'Document', 'Sample'])
 
 // Resolve the argument to a material folder (first folder under the root).
 let abs = existsSync(target) ? resolve(target) : join(DEFAULT_ROOT, target)
@@ -58,9 +58,10 @@ for (const c of onlyCand) {
   const description = refs.flatMap(r => pdfs(files(r))).filter(n => /description|solubility/i.test(n))
   const docsRoot = join(c.dir, 'Document')
   const packs = subdirs(docsRoot).sort().map(d => ({ date: d, files: pdfs(files(join(docsRoot, d))) }))
+  const samples = files(join(c.dir, 'Sample')).filter(n => /\.(png|jpe?g)$/i.test(n)).sort()
   const comparison = files(c.dir).filter(n => /CoA Comparison.*\.md$/i.test(n))
   const m = avl ? matchAvl(avl, { material: c.segs.length > 1 ? `${materialName}` : materialName, manufacturer: maker.replace(/\s*\(.*\)$/, '') }) : null
-  report.candidates.push({ maker, path: c.segs.join('/'), avl: m, apmCoa, incumbent, monograph, description, editions: [...new Set([...monograph, ...description].map(edition).filter(Boolean))], packs, comparison })
+  report.candidates.push({ maker, path: c.segs.join('/'), avl: m, apmCoa, incumbent, monograph, description, editions: [...new Set([...monograph, ...description].map(edition).filter(Boolean))], packs, samples, comparison })
 }
 
 if (json) { console.log(JSON.stringify(report, null, 2)); process.exit(0) }
@@ -80,6 +81,7 @@ for (const c of report.candidates) {
   out.push(c.incumbent.length ? `${ok}Incumbent   ${c.incumbent.join('; ')}` : `${ask}Incumbent   none found by file name`)
   const last = c.packs[c.packs.length - 1]
   out.push(last ? `${ok}Candidate   ${c.packs.length} dated folder(s), latest ${last.date}: ${last.files.length} file(s)` : `${gap}Candidate   Document folder is empty`)
+  if (c.samples.length) out.push(`${ok}Sample      ${c.samples.length} photo(s), latest ${c.samples[c.samples.length - 1].slice(0, 6)}`)
   out.push(c.monograph.length ? `${ok}Monograph   ${c.monograph.join('; ')}` : `${gap}Monograph   none in References`)
   out.push(c.description.length ? `${ok}Description ${c.description.join('; ')}` : `${gap}Description none in References`)
   if (c.editions.length) out.push(`            editions on file: ${c.editions.join(', ')}`)

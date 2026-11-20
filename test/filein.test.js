@@ -102,7 +102,7 @@ test('warns: flat layout, date mismatch, form with no verdict word, HEIC', () =>
   writeFileSync(join(s.scan, 'IMG_0002.HEIC'), 'heic')
   const plan = planFiling({ items: [
     item(s, { dest: 'Material B\\Supplier A\\Document\\261116', newCandidate: true }),
-    { src: join(s.scan, 'IMG_0001.jpeg'), name: '261115 Material A Sample (Supplier A, Lot 1) - 1.jpeg', dest: 'Material A\\Supplier A\\Document\\261116' },
+    { src: join(s.scan, 'IMG_0001.jpeg'), name: '261115 Material A CoA (Supplier A, Photo).jpeg', dest: 'Material A\\Supplier A\\Document\\261116' },
     { src: join(s.scan, 'IMG_0002.HEIC'), name: '261116 Material A Selection Form (Supplier A, Reviewer Annotated).HEIC', dest: 'Material A\\Supplier A\\Document\\261116' },
   ] }, s)
   assert.equal(plan.ok, true)

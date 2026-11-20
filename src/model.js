@@ -108,6 +108,8 @@ export function buildRows({ materials, evaluations, events, files = [] }) {
   const today = todayIso()
   const formsByEval = {}
   for (const x of files || []) if (x.evaluation_id && x.doc_date && isAnnotatedForm(x.name)) (formsByEval[x.evaluation_id] ||= []).push(x)
+  const photosByEval = {}
+  for (const x of files || []) if (x.evaluation_id && x.doc_date && isSamplePhoto(x.rel)) (photosByEval[x.evaluation_id] ||= []).push(x)
   const matById = Object.fromEntries(materials.map(m => [m.id, m]))
   const evByEval = {}
   for (const ev of events) if (ev.evaluation_id) (evByEval[ev.evaluation_id] ||= []).push(ev)
@@ -178,7 +180,7 @@ export function buildRows({ materials, evaluations, events, files = [] }) {
       stageDates: sd, stations, since,
       holder: holderOf(stages, openData, since, sd),
       decisionDays: firstDocs && sd.outcome?.date >= firstDocs ? daysBetween(firstDocs, sd.outcome.date) : null,
-      sample: sampleOf(evs, stages, sd, today),
+      sample: sampleOf(evs, stages, sd, today, photosByEval[e.id] || []),
       // Valid-until dates from the tracker block, days left (negative = expired).
       expiries: expiriesOf(t).map(x => ({ ...x, days: x.date ? daysBetween(today, x.date) : null })),
     }
@@ -197,7 +199,12 @@ export const expiring = (rows, within = 60) => rows.filter(r => !['not_approved'
 // the result. The result is the QC stage and its date.
 export const SAMPLE_STEPS = [['requested', 'Requested'], ['received', 'Received'], ['sent', 'Sent to QC'], ['result', 'QC result']]
 export const isQcParty = p => /^qc\b/i.test(String(p || '').trim())
-export function sampleOf(evs, stages, sd, today = todayIso()) {
+// A photo in the candidate's flat Sample\ folder (rm_files.rel ".../Sample/<name>").
+export const isSamplePhoto = rel => /(^|\/)Sample\/[^/]+$/.test(String(rel || ''))
+// `photos`: the evaluation's Sample\ files ({ name, doc_date }). A photo dated on
+// or after the open request to PU means the sample has most likely arrived:
+// flagged as `photo` (first date, count) for RD to mark received. Never closes it.
+export function sampleOf(evs, stages, sd, today = todayIso(), photos = []) {
   const reqs = evs.filter(x => x.kind === 'docs_requested' && x.topic === 'sample')
   if (!reqs.length && !stages.qc) return null
   const toQc = reqs.filter(x => isQcParty(x.party))
@@ -221,7 +228,9 @@ export function sampleOf(evs, stages, sd, today = todayIso()) {
   // Where it is now: the first step not done (after a result, nowhere).
   const now = result ? null : steps.find(s => !s.done)?.key ?? null
   const holder = now === 'received' ? (at.requested?.party || 'PU') : now === 'sent' ? 'RD' : now === 'result' ? 'QC' : now === 'requested' ? 'RD' : null
-  return { steps, now, holder, waitingDays: now && prev ? daysBetween(prev, today) : null, result: result?.value ?? null, askId: ask?.id ?? null, sentId: sent?.id ?? null, open: !!now }
+  const fresh = now === 'received' && ask ? photos.filter(p => p.doc_date && p.doc_date >= ask.event_date) : []
+  const photo = fresh.length ? { date: fresh.map(p => p.doc_date).sort()[0], count: fresh.length } : null
+  return { steps, now, holder, waitingDays: now && prev ? daysBetween(prev, today) : null, result: result?.value ?? null, askId: ask?.id ?? null, sentId: sent?.id ?? null, open: !!now, photo, photos: photos.length }
 }
 
 // ── Stage dates ──────────────────────────────────────────────────────────

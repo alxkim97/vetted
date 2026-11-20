@@ -323,6 +323,7 @@ function samplePanel(r) {
       <span>${x.date ? `${fmtDate(x.date)}${x.est ? '*' : ''}${x.key === 'result' && x.value ? ` · ${RESULT[x.value]}` : ''}` : x.done ? (x.value ? RESULT[x.value] : 'done') : '—'}</span>
       ${x.days != null ? `<small>+${x.days} d</small>` : ''}</li>`).join('')}</ol>
     ${s?.steps[0]?.what ? `<p class="note">Asked: ${esc(s.steps[0].what)}</p>` : ''}
+    ${s?.photo ? `<p class="note"><b>Sample received?</b> ${s.photo.count} photo${s.photo.count > 1 ? 's' : ''} dated ${fmtDate(s.photo.date)} ${s.photo.count > 1 ? 'are' : 'is'} in Sample\\, and the request is still open.${act?.[0] === 'sample-received' ? ' Mark it received with that date.' : ''}</p>` : ''}
     ${mixed ? `<p class="note">An open request mentions a sample (${esc(mixed.what)}, ${fmtDate(mixed.event_date)}) but isn't tracked as one. Use “Ask PU for a sample” with its date to track it.</p>` : ''}
     ${locked && now === 'result' ? '<p class="note">The QC result comes from the tracker block (qc:). Set it there, then scan.</p>' : ''}
   </div>`
@@ -629,7 +630,7 @@ export async function evalAction(act, el) {
     case 'sample-received':
       formDialog({
         title: 'Sample received', sub: r.sample?.steps[0]?.date ? `Asked ${fmtDate(r.sample.steps[0].date)}.` : '',
-        fields: dateField('date', 'Received on'), submit: 'Save',
+        fields: r.sample?.photo ? dateField('date', 'Received on', r.sample.photo.date) : dateField('date', 'Received on'), submit: 'Save',
         onSubmit: fd => setReceived(r.sample.askId, true, fd.get('date')),
       })
       return true

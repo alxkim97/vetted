@@ -13,6 +13,7 @@ export const RULES = {
   not_approved_open: 'Not approved with an open request',
   request_differs: 'Open request differs from the file',
   request_not_open: 'File says a request is out, none open',
+  sample_photo_open: 'Sample photos filed, sample request still open',
   no_tracker: 'Comparison file has no tracker block',
 }
 const ORDER = Object.keys(RULES)
@@ -76,6 +77,13 @@ export function healthCheck(rows, files = []) {
       const sent = toIsoDate(t.request_sent)
       const req = r.events.find(x => x.kind === 'docs_requested' && x.event_date === sent)
       add('request_not_open', `The tracker block says a request went to ${t.request_to || 'PU'} on ${fmtDate(sent) || t.request_sent}, but no request is open in the app${req?.closed_on ? ` (documents on ${fmtDate(req.closed_on)} closed it)` : ''}. Update request_sent in the file, or log the new request.`)
+    }
+
+    // 5b. Sample photos in Sample\ dated on or after the open sample request to PU:
+    // the sample has most likely arrived. The fix is "Sample received" on that date.
+    if (!closed && r.sample?.photo) {
+      const p = r.sample.photo, ask = r.sample.steps[0]
+      add('sample_photo_open', `${p.count} sample photo${p.count > 1 ? 's' : ''} dated ${fmtDate(p.date)} ${p.count > 1 ? 'are' : 'is'} in Sample\\, but the sample request to ${ask?.party || 'PU'} from ${fmtDate(ask?.date)} is still open. Mark the sample received on ${fmtDate(p.date)}.`, { date: p.date })
     }
 
     // 6. An open evaluation whose comparison file has no tracker block.
