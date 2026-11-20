@@ -277,3 +277,14 @@ html.modal-open { overflow: hidden; scrollbar-gutter: stable; }
 .more-details .file-row { margin-bottom: 12px; }
 .logo .stamp-mark { display: block; }
 .tally-item { flex: 0 1 150px; min-width: 120px; }
+
+/* Rounded corners on the table itself (.sheet doesn't clip in Evaluations). The sticky header's corner cells get an
+   inverse-corner patch in the page colour, so a row stripe scrolling underneath never shows in the curve. */
+.grid thead tr:first-child > :first-child { border-top-left-radius: 14px; }
+.grid thead tr:first-child > :last-child { border-top-right-radius: 14px; }
+.grid tbody tr:last-child > :first-child { border-bottom-left-radius: 14px; }
+.grid tbody tr:last-child > :last-child { border-bottom-right-radius: 14px; }
+.grid thead tr:first-child > :first-child::after,
+.grid thead tr:first-child > :last-child::after { content: ''; position: absolute; top: 0; width: 14px; height: 14px; pointer-events: none; z-index: 1; }
+.grid thead tr:first-child > :first-child::after { left: 0; background: radial-gradient(circle at 100% 100%, transparent 13.5px, var(--bg) 14px); }
+.grid thead tr:first-child > :last-child::after { right: 0; background: radial-gradient(circle at 0 100%, transparent 13.5px, var(--bg) 14px); }
