@@ -25,7 +25,7 @@ const { supa } = serviceClient()
 try {
   const r = await pushScan(supa, scan, arg('--trigger') || 'cli', { upload: process.argv.includes('--upload') })
   for (const x of scan.skipped) console.log(`skipped: ${x.rel} (${x.why})`)
-  console.log(`Scanned ${r.materials} materials · ${r.evaluations} evaluations · ${r.events_added} new document folders${r.uploaded ? ` · ${r.uploaded} files uploaded` : ''}`)
+  console.log(`Scanned ${r.materials} materials · ${r.evaluations} evaluations · ${r.events_added} new document folders${r.events_removed ? ` · ${r.events_removed} gone folders removed` : ''}${r.uploaded ? ` · ${r.uploaded} files uploaded` : ''}`)
 } catch (e) {
   console.error('Scan failed:', e.message || e)
   process.exit(1)

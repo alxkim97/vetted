@@ -73,7 +73,9 @@ test('received but not sent: your move; a QC result recorded without sample requ
   assert.equal(s.holder, 'RD')
   const old = row({ coa: 'pass', qc: 'not_approved' }, [stage('2026-09-10', 'qc', 'not_approved')]).sample
   assert.equal(old.result, 'not_approved')
-  assert.deepEqual(old.steps.map(x => x.done), [false, false, false, true])
+  // A result ends the sample: earlier steps never logged read as done (green), undated.
+  assert.deepEqual(old.steps.map(x => x.done), [true, true, true, true])
+  assert.deepEqual(old.steps.map(x => x.skipped), [true, true, true, false])
 })
 
 test('the latest ask to PU is the one tracked (a second request after a lost sample)', () => {

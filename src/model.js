@@ -220,8 +220,10 @@ export function sampleOf(evs, stages, sd, today = todayIso(), photos = []) {
   let prev = null
   const steps = SAMPLE_STEPS.map(([key, label]) => {
     const s = at[key]
-    const st = { key, label, date: s?.date ?? null, done: !!s, days: null, ...(s || {}) }
-    if (st.date && prev) st.days = daysBetween(prev, st.date)
+    // A result with an earlier step never logged: that step happened (green), undated.
+    const skipped = !s && !!result && key !== 'result'
+    const st = { key, label, date: s?.date ?? null, done: !!s || skipped, skipped, days: null, ...(s || {}) }
+    if (st.date && prev) { const d = daysBetween(prev, st.date); st.days = d >= 0 ? d : null }
     if (st.date) prev = st.date
     return st
   })

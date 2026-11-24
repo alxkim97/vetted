@@ -158,3 +158,4 @@
   .tb-right > .btn:not(.tb-tools) { display: none; }
   .tb-tools { display: inline-flex; }
 }
+.sample-steps em { font-style: normal; font-size: 12px; font-weight: 650; color: var(--text); }

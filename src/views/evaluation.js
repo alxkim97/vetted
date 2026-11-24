@@ -174,10 +174,11 @@ function tracker(r) {
     // While someone else has it, the current station's ring turns blue.
     const tone = s.tone + (s.state === 'now' && r.status === 'in_progress' ? ' holding' : '')
     const tag = ro ? 'div' : 'button'
-    const attrs = ro ? '' : ` type="button" data-menu="stage-${s.key}"${fromFile(s.key) ? ' data-locked="1"' : ''}`
+    const locked = !ro && fromFile(s.key)
+    const attrs = ro ? '' : ` type="button" data-menu="stage-${s.key}"${locked ? ' data-locked="1"' : ''}`
     const train = s.state === 'now' ? `<span class="train">${icon('train', 13)}${r.stages.outcome ? esc(s.result) : s.days != null ? `Here · ${s.days} d` : 'Here'}</span>` : ''
-    return `<${tag} class="st ${s.state}${s.filled ? ' filled' : ''} t-${tone}" data-tip="${esc(tip)}"${attrs}>${train}<span class="dot">${(s.state === 'done' || s.filled) && !(s.key === 'avl' && s.tone === 'grey') ? icon(s.tone === 'red' ? 'x' : 'check', 14) : ''}</span>
-      <b>${esc(s.label)}</b><span class="res">${esc(s.result) || '&nbsp;'}</span><span class="when">${s.sub ? esc(s.sub) : s.inferred ? 'inferred' : s.date ? `${fmtDate(s.date)}${s.est ? '*' : ''}` : s.state === 'now' && s.since ? `since ${fmtDate(s.since)}` : '&nbsp;'}</span></${tag}>`
+    return `<${tag} class="st ${s.state}${s.filled ? ' filled' : ''} t-${tone}" data-tip="${esc(locked ? `${tip} · ${FILE_LOCK}` : tip)}"${attrs}>${train}<span class="dot">${(s.state === 'done' || s.filled) && !(s.key === 'avl' && s.tone === 'grey') ? icon(s.tone === 'red' ? 'x' : 'check', 14) : ''}</span>
+      <b>${esc(s.label)}${locked ? `<span class="st-lock" aria-label="Set in the comparison file">${icon('lock', 11)}</span>` : ''}</b><span class="res">${esc(s.result) || '&nbsp;'}</span><span class="when">${s.sub ? esc(s.sub) : s.inferred ? 'inferred' : s.date ? `${fmtDate(s.date)}${s.est ? '*' : ''}` : s.state === 'now' && s.since ? `since ${fmtDate(s.since)}` : '&nbsp;'}</span></${tag}>`
   }).join('')
   const h = r.holder
   const open = r.openRequests.filter(q => q.topic !== 'form')
@@ -203,7 +204,7 @@ export function stageMenu(anchor, key) {
   const k = key === 'decision' ? 'outcome' : key
   const title = k === 'outcome' ? 'Decision' : STAGES.find(s => s.key === k).label
   const dateItem = k === 'outcome' && r.stages.outcome ? `<hr><button type="button" class="menu-item" data-act="decision-date"><span class="menu-check"></span><span>Set decision date…<small>${r.stageDates.outcome?.date ? `Now ${fmtDate(r.stageDates.outcome.date)}${r.stageDates.outcome.est ? ' (estimated)' : ''}` : 'Not dated yet'}</small></span></button>` : ''
-  if (anchor.dataset.locked) return openMenu(anchor, [], { html: `<p class="menu-head">${esc(title)}</p><p class="menu-text">Set by the tracker block in the comparison file. Change it there, then scan.</p>${dateItem}` })
+  if (anchor.dataset.locked) return openMenu(anchor, [], { html: `<p class="menu-head">${esc(title)}</p><p class="menu-text lock-line">${icon('lock', 13)}<span>${FILE_LOCK}</span></p><p class="menu-text sub">The app takes it from the tracker block on the next scan.</p>${dateItem}` })
   const values = k === 'outcome' ? OUTCOMES : STAGES.find(s => s.key === k).values
   const cur = r.stages[k]
   const warn = k === 'outcome' && r.stages.qc !== 'approved' ? 'Approved before the QC sample: say why in the timeline.' : k === 'docs' && r.stages.coa !== 'pass' ? 'Docs usually wait until the CoA passes.' : null
@@ -320,14 +321,19 @@ function samplePanel(r) {
     <h3>QC sample ${s?.open && s.waitingDays != null ? `<span class="wait w-${waitTone(s.waitingDays)}">${s.waitingDays} d${s.holder ? ` · ${esc(s.holder === 'RD' ? 'you' : s.holder)}` : ''}</span>` : ''}${act ? `<button class="btn soft small h3-right" data-act="${act[0]}">${act[1]}</button>` : ''}</h3>
     <ol class="sample-steps">${steps.map(x => `<li class="${x.done ? 'done' : x.key === now ? 'now' : ''}${x.key === 'result' && x.value === 'not_approved' ? ' bad' : ''}">
       <i></i><b>${esc(x.label)}</b>
-      <span>${x.date ? `${fmtDate(x.date)}${x.est ? '*' : ''}${x.key === 'result' && x.value ? ` · ${RESULT[x.value]}` : ''}` : x.done ? (x.value ? RESULT[x.value] : 'done') : '—'}</span>
+      <span>${x.date ? `${fmtDate(x.date)}${x.est ? '*' : ''}` : x.skipped ? '—' : x.done ? (x.value ? RESULT[x.value] : 'done') : '—'}</span>
+      ${x.key === 'result' && x.value && x.date ? `<em>${RESULT[x.value]}</em>` : ''}
       ${x.days != null ? `<small>+${x.days} d</small>` : ''}</li>`).join('')}</ol>
     ${s?.steps[0]?.what ? `<p class="note">Asked: ${esc(s.steps[0].what)}</p>` : ''}
     ${s?.photo ? `<p class="note"><b>Sample received?</b> ${s.photo.count} photo${s.photo.count > 1 ? 's' : ''} dated ${fmtDate(s.photo.date)} ${s.photo.count > 1 ? 'are' : 'is'} in Sample\\, and the request is still open.${act?.[0] === 'sample-received' ? ' Mark it received with that date.' : ''}</p>` : ''}
     ${mixed ? `<p class="note">An open request mentions a sample (${esc(mixed.what)}, ${fmtDate(mixed.event_date)}) but isn't tracked as one. Use “Ask PU for a sample” with its date to track it.</p>` : ''}
-    ${locked && now === 'result' ? '<p class="note">The QC result comes from the tracker block (qc:). Set it there, then scan.</p>' : ''}
+    ${locked && !ro ? lockNote('QC result') : ''}
   </div>`
 }
+
+// Shown wherever the tracker block in the comparison file wins over the app.
+const FILE_LOCK = 'Set in the comparison file, change it there.'
+const lockNote = what => `<p class="note lock-note">${icon('lock', 13)} ${what ? `${esc(what)}: ` : ''}${FILE_LOCK}</p>`
 
 const FIELDS = [['manufacturer', 'Manufacturer', 'manufacturer'], ['supplier', 'Supplier', 'supplier'], ['item_code', 'Item code', 'item_code'], ['next_action', 'Next action', 'next_action']]
 function factsPanel(r, f) {
@@ -336,13 +342,13 @@ function factsPanel(r, f) {
     const field = ([k, label, fileKey]) => {
       const file = r.fromFile.has(fileKey)
       const val = { candidate_name: r.candidate, manufacturer: r.manufacturer, supplier: r.supplier, item_code: r.itemCode, next_action: r.nextAction }[k]
-      return `<label class="field">${label}${file ? '<span class="from-file">from file</span>' : ''}<input name="${k}" value="${esc(val ?? '')}" ${file ? 'disabled' : ''}></label>`
+      return `<label class="field">${label}<input name="${k}" value="${esc(val ?? '')}" ${file ? `disabled title="${FILE_LOCK}"` : ''}>${file ? lockNote() : ''}</label>`
     }
     return `<form class="panel fields" data-form="fields">
       <h3>Details</h3>
       ${FIELDS.map(field).join('')}
-      <label class="field">Type${r.fromFile.has('kind') ? '<span class="from-file">from file</span>' : ''}
-        <select name="kind" ${r.fromFile.has('kind') ? 'disabled' : ''}>${[['', 'Not set'], ['api', 'API'], ['excipient', 'Excipient']].map(([v, l]) => `<option value="${v}"${(r.kind || '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select></label>
+      <label class="field">Type
+        <select name="kind" ${r.fromFile.has('kind') ? `disabled title="${FILE_LOCK}"` : ''}>${[['', 'Not set'], ['api', 'API'], ['excipient', 'Excipient']].map(([v, l]) => `<option value="${v}"${(r.kind || '') === v ? ' selected' : ''}>${l}</option>`).join('')}</select>${r.fromFile.has('kind') ? lockNote() : ''}</label>
       <label class="field">Notes (shown in the status list)<textarea name="notes" rows="3">${esc(r.raw.notes || '')}</textarea></label>
       <div class="row-end"><button type="button" class="btn ghost small" data-act="edit-facts">Cancel</button><button class="btn primary small" type="submit">Save</button></div>
     </form>`

@@ -229,14 +229,14 @@ function shell() {
   const on = state.view === 'evaluation' ? (state.backHash?.includes('evaluations') || !state.backHash ? 'evaluations' : 'overview') : state.view
   return `
     <div class="shell">
-      <header class="topnav">
+      <header class="topnav${ro ? ' topnav-ro' : ''}">
         <a class="brand" href="${pre()}/"><span class="logo">${stampMark(20)}</span><span>Vetted</span></a>
         <nav class="pills" aria-label="Pages">
           ${NAV.map(([v, label, ico, path]) => `<a class="pill${on === v ? ' on' : ''}" href="${pre()}${path || '/'}">${icon(ico, 17)}<span>${label}</span>${v === 'evaluations' ? `<b class="pill-n">${state.rows.length}</b>` : ''}</a>`).join('')}
         </nav>
         <div class="topnav-right">
           ${headerSearch()}
-          ${ro ? `<button type="button" class="round-btn" data-act="theme-cycle" aria-label="Theme: ${state.prefs.theme}. Click to change" title="Theme: ${state.prefs.theme}. Click to change">${icon(state.prefs.theme === 'dark' ? 'moon' : 'sun', 18)}</button><span class="view-only">${icon('eye', 14)} View only</span>` : `${scanButton()}
+          ${ro ? `<button type="button" class="round-btn" data-act="theme-cycle" aria-label="Theme: ${state.prefs.theme}. Click to change" title="Theme: ${state.prefs.theme}. Click to change">${icon(state.prefs.theme === 'dark' ? 'moon' : 'sun', 18)}</button><span class="view-only" title="View only" aria-label="View only">${icon('eye', 14)}<span class="vo-label">View only</span></span>` : `${scanButton()}
           <a class="round-btn${state.view === 'settings' ? ' on' : ''}" href="#/settings" aria-label="Settings" title="Settings">${icon('settings', 18)}</a>`}
         </div>
       </header>
