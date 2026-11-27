@@ -89,6 +89,17 @@ export function columnValues(id) {
 const FILTER_LABEL = { project: 'Project', product: 'Product', kind: 'Type', company: 'Company' }
 const filterValueLabel = (k, v) => k === 'project' ? PROJECTS[v] : k === 'kind' ? { api: 'API', excipient: 'Excipient', unset: 'Not set' }[v] : v
 
+// Plain-words list of everything narrowing the list right now (search, status chips,
+// Filters menu, column filters). Printed on the status list so a reader can tell it is a partial view.
+export function filterSummary() {
+  const f = state.filter, out = []
+  if (f.q.trim()) out.push(`search "${f.q.trim()}"`)
+  if (f.chips.length) out.push(`status ${f.chips.map(k => CHIPS.find(c => c[0] === k)[1]).join(' / ')}`)
+  for (const k of ['project', 'product', 'kind', 'company']) if (f[k]) out.push(`${FILTER_LABEL[k].toLowerCase()} ${filterValueLabel(k, f[k])}`)
+  for (const [id, vals] of Object.entries(state.prefs.colFilters || {})) if (vals?.length && byId[id]) out.push(`${byId[id].label.toLowerCase()} ${vals.join(' / ')}`)
+  return out
+}
+
 // Filters dropdown: four selects, applied as they change.
 export function filtersMenuHtml() {
   const f = state.filter

@@ -14,7 +14,7 @@ import { esc, icon, toast, closeTopModal, modalOpen, openMenu, closeMenu, copyTe
 import { renderAuth, renderNotMember, renderNoTables } from './views/auth.js'
 import { renderOverview, overviewSummary, overviewActions } from './views/overview.js'
 import { openReply, openHealth, toolsMenuItems, toggleSamples } from './views/tools.js'
-import { renderEvaluations, visibleRows, exportCsv, filtersMenuHtml, viewMenuItems, colFilterMenuHtml, setShown, columnOrder } from './views/evaluations.js'
+import { renderEvaluations, visibleRows, exportCsv, filtersMenuHtml, filterSummary, viewMenuItems, colFilterMenuHtml, setShown, columnOrder } from './views/evaluations.js'
 import { renderEvaluation, evalAction, evalChange, evalSubmit, evalPaste, evalDrop, stageMenu, handoffMenu, copyPromptFor, hooks as evalHooks, TAB_IDS } from './views/evaluation.js'
 import { renderSettings, scanSummary } from './views/settings.js'
 import { setReceived, setStage } from './edits.js'
@@ -354,7 +354,7 @@ document.addEventListener('click', async e => {
       case 'note': return jumpTo(`note-${value}`)
       case 'issues-only': savePrefs({ issuesOnly: value === '1' }); return render()
       case 'tick-sum': { const w = el.closest('.tsw'); document.querySelectorAll('.tsw.open').forEach(x => x !== w && x.classList.remove('open')); return w?.classList.toggle('open') }
-      case 'print-list': closeMenu(); return printStatusList(visibleRows())
+      case 'print-list': closeMenu(); return printStatusList(visibleRows(), { filters: filterSummary(), total: state.rows.length })
       case 'export': closeMenu(); return exportCsv()
       case 'menu-filters': return reopen('filters', openFilters)
       case 'menu-view': return reopen('view', openView)
