@@ -85,7 +85,7 @@ ipcMain.handle('pdf:save', async (_e, { html, name, fileName: given, rel, root }
 })
 
 // After a status list is saved: finds older revisions (R.n) in the same folder and, with
-// move: true, shelves them in the sibling Old folder. Never overwrites or deletes.
+// move: true, shelves them in the Old folder inside it. Never overwrites or deletes.
 ipcMain.handle('pdf:archive-older', async (_e, { filePath, root, move }) => {
   const base = await rmRoot(root)
   const file = path.resolve(filePath), dir = path.dirname(file)
@@ -94,8 +94,9 @@ ipcMain.handle('pdf:archive-older', async (_e, { filePath, root, move }) => {
   const older = fs.readdirSync(dir).filter(f => f !== keep && /^RM Evaluation Status List \(R\.\d+_.*\)\.(pdf|md)$/.test(f))
   const revs = [...new Set(older.map(f => Number(f.match(/\(R\.(\d+)_/)[1])))].sort((a, b) => a - b)
   if (!move) return { files: older, revs }
-  const old = path.resolve(dir, '..', 'Old')
-  if (!within(old, base) || !fs.existsSync(old)) throw new Error('No Old folder next to this one')
+  const old = path.join(dir, 'Old')
+  if (!within(old, base)) throw new Error('Old folder is outside the RM folder')
+  fs.mkdirSync(old, { recursive: true })
   let moved = 0, skipped = 0
   for (const f of older) {
     const to = path.join(old, f)

@@ -96,7 +96,7 @@ async function afterExport(saved, rev) {
     const opts = { filePath: saved, root: state.prefs.root || undefined }
     const older = await window.electronAPI.archiveOlder(opts)
     const names = older?.revs?.map(r => 'R.' + r).join(', ')
-    if (older?.files?.length && await confirmBox(`Move the older revision${older.revs.length > 1 ? 's' : ''} (${names}, ${older.files.length} file${older.files.length > 1 ? 's' : ''}) to _Admin\\Old?`, { ok: 'Move to Old', danger: false })) {
+    if (older?.files?.length && await confirmBox(`Move the older revision${older.revs.length > 1 ? 's' : ''} (${names}, ${older.files.length} file${older.files.length > 1 ? 's' : ''}) to the Old folder?`, { ok: 'Move to Old', danger: false })) {
       const r = await window.electronAPI.archiveOlder({ ...opts, move: true })
       toast(`Moved ${r.moved} file${r.moved === 1 ? '' : 's'} to Old${r.skipped ? ` (${r.skipped} skipped, name already there)` : ''}`)
     }
