@@ -33,9 +33,10 @@ writeFileSync(htmlPath, html)
 const pdf = resolve(opt('--out') ?? join(dirname(md), `${stem}.pdf`))
 const edge = ['C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe', 'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'].find(existsSync)
 if (!edge) { console.error('Microsoft Edge not found.'); process.exit(1) }
+const esc = s => s.replace(/'/g, "''")
 const q = s => `'${s.replace(/'/g, "''")}'`
 const ps = `$a = @('--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check','--no-pdf-header-footer',` +
-  `'--user-data-dir="${join(work, 'profile')}"','--print-to-pdf="${pdf}"',${q(pathToFileURL(htmlPath).href)}); ` +
+  `'--user-data-dir="${esc(join(work, 'profile'))}"','--print-to-pdf="${esc(pdf)}"',${q(pathToFileURL(htmlPath).href)}); ` +
   `$p = Start-Process -FilePath ${q(edge)} -ArgumentList $a -Wait -PassThru -WindowStyle Hidden; exit $p.ExitCode`
 const before = existsSync(pdf) ? statSync(pdf).mtimeMs : 0
 const run = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', ps], { encoding: 'utf8' })
