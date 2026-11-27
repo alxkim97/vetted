@@ -9,4 +9,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openPath: rel => ipcRenderer.invoke('file:open', rel),
   // PDF from HTML, saved where Alex picks (default: the RM folder)
   savePdf: opts => ipcRenderer.invoke('pdf:save', opts),
+  archiveOlder: opts => ipcRenderer.invoke('pdf:archive-older', opts),
 })

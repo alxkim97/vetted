@@ -64,14 +64,10 @@ async function rmRoot(root) {
 
 // Saves a PDF made from the page's HTML (status list, evaluation summary).
 // The status list gets the next free revision in the RM folder's own naming.
-ipcMain.handle('pdf:save', async (_e, { html, name, rel, root }) => {
+// The status list's name (with its R.n) comes from the app, which keeps the counter.
+ipcMain.handle('pdf:save', async (_e, { html, name, fileName: given, rel, root }) => {
   const base = await rmRoot(root)
-  let fileName = name
-  if (name === 'status-list') {
-    const revs = fs.readdirSync(base).map(f => f.match(/^RM Evaluation Status List \(R\.(\d+)_/)?.[1]).filter(Boolean).map(Number)
-    const d = new Date(Date.now() + 7 * 3600e3).toISOString().slice(2, 10).replace(/-/g, '')
-    fileName = `RM Evaluation Status List (R.${revs.length ? Math.max(...revs) + 1 : 0}_${d}).pdf`
-  }
+  const fileName = given ? path.basename(given) : name
   const dir = path.resolve(base, rel || '')
   const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
     defaultPath: path.join(within(dir, base) && fs.existsSync(dir) ? dir : base, fileName),
@@ -86,6 +82,27 @@ ipcMain.handle('pdf:save', async (_e, { html, name, rel, root }) => {
   } finally { win.destroy() }
   shell.openPath(filePath)
   return filePath
+})
+
+// After a status list is saved: finds older revisions (R.n) in the same folder and, with
+// move: true, shelves them in the sibling Old folder. Never overwrites or deletes.
+ipcMain.handle('pdf:archive-older', async (_e, { filePath, root, move }) => {
+  const base = await rmRoot(root)
+  const file = path.resolve(filePath), dir = path.dirname(file)
+  if (!within(dir, base)) return { files: [], revs: [] }
+  const keep = path.basename(file)
+  const older = fs.readdirSync(dir).filter(f => f !== keep && /^RM Evaluation Status List \(R\.\d+_.*\)\.(pdf|md)$/.test(f))
+  const revs = [...new Set(older.map(f => Number(f.match(/\(R\.(\d+)_/)[1])))].sort((a, b) => a - b)
+  if (!move) return { files: older, revs }
+  const old = path.resolve(dir, '..', 'Old')
+  if (!within(old, base) || !fs.existsSync(old)) throw new Error('No Old folder next to this one')
+  let moved = 0, skipped = 0
+  for (const f of older) {
+    const to = path.join(old, f)
+    if (fs.existsSync(to)) { skipped++; continue }
+    fs.renameSync(path.join(dir, f), to); moved++
+  }
+  return { moved, skipped }
 })
 
 // Opens a comparison file or folder (path relative to the RM folder) in its default app.

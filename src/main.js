@@ -19,7 +19,7 @@ import { renderEvaluation, evalAction, evalChange, evalSubmit, evalPaste, evalDr
 import { renderSettings, scanSummary } from './views/settings.js'
 import { setReceived, setStage } from './edits.js'
 import { undo, redo, hooks as undoHooks, purgeOrphans } from './undo.js'
-import { printStatusList } from './print.js'
+import { printStatusList, exportMenuItems, openRevEditor } from './print.js'
 import { openProduct } from './views/product.js'
 
 installDmy()
@@ -294,7 +294,7 @@ function menuFor(el) {
   const m = el.dataset.menu
   if (m === 'filters') return openFilters(el)
   if (m === 'view') return openView(el)
-  if (m === 'export') return openMenu(el, [{ label: 'Status list PDF', act: 'print-list', hint: 'Same table as the RM Evaluation Status List' }, { label: 'CSV for Excel', act: 'export', hint: 'The rows on screen, every column' }], { align: 'right' })
+  if (m === 'export') return openMenu(el, exportMenuItems(), { align: 'right' })
   if (m === 'handoff') return handoffMenu(el)
   if (m === 'tools') return openMenu(el, toolsMenuItems(), { align: 'right' })
   if (m.startsWith('colf-')) return openColf(m.slice(5))(el)
@@ -355,6 +355,7 @@ document.addEventListener('click', async e => {
       case 'issues-only': savePrefs({ issuesOnly: value === '1' }); return render()
       case 'tick-sum': { const w = el.closest('.tsw'); document.querySelectorAll('.tsw.open').forEach(x => x !== w && x.classList.remove('open')); return w?.classList.toggle('open') }
       case 'print-list': closeMenu(); return printStatusList(visibleRows(), { filters: filterSummary(), total: state.rows.length })
+      case 'list-rev': closeMenu(); return openRevEditor()
       case 'export': closeMenu(); return exportCsv()
       case 'menu-filters': return reopen('filters', openFilters)
       case 'menu-view': return reopen('view', openView)

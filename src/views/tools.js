@@ -9,6 +9,7 @@ import { replyGroups, puReply, DEFAULT_TOPIC } from '../reply.js'
 import { healthCheck, RULES } from '../health.js'
 import { logSentMany } from '../edits.js'
 import { dmyInput } from '../dateInput.js'
+import { exportMenuItems } from '../print.js'
 
 // ── Small dialogs ──
 // A form in a modal: fields (HTML) and one submit button. onSubmit gets the
@@ -196,7 +197,7 @@ export function toolsMenuItems() {
   return [
     ...(readOnly() ? [] : [{ label: 'Reply to PU', act: 'reply-pu' }, { label: 'Needs a look', act: 'health-all', hint: n ? `${n} to check` : 'Nothing to check' }, { sep: true }]),
     { label: 'Filters…', act: 'menu-filters' }, { label: 'View…', act: 'menu-view' }, { sep: true },
-    { label: 'Status list PDF', act: 'print-list' }, { label: 'CSV for Excel', act: 'export' },
+    ...exportMenuItems(),
   ]
 }
 

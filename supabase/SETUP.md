@@ -262,3 +262,16 @@ The link reads through `api/view.js` on Vercel, which needs two environment
 variables in the **vetted** Vercel project (Settings → Environment Variables,
 Production): `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`, the same values as
 `.env.local`. Then make the link in the app: Settings → Manager view link.
+
+## v0.17.2: status-list revision counter
+
+```sql
+create table if not exists rm_settings (
+  key        text primary key,
+  value      jsonb not null,
+  updated_at timestamptz not null default now()
+);
+alter table rm_settings enable row level security;
+drop policy if exists "members" on rm_settings;
+create policy "members" on rm_settings for all to authenticated using (is_worklog_member()) with check (is_worklog_member());
+```

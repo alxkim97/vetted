@@ -5,7 +5,8 @@
 import { state } from './store.js'
 import { STATUS, fmtDate, todayIso, productNames } from './model.js'
 import { tally, issuesOf } from '../lib/doc.js'
-import { esc, toast } from './ui.js'
+import { esc, toast, openModal, confirmBox } from './ui.js'
+import { saveListMeta } from './data.js'
 
 const yymmdd = () => todayIso().slice(2).replace(/-/g, '')
 const CSS = title => `
@@ -46,19 +47,60 @@ const CSS = title => `
   .box { border: 1px solid #ccc; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; }
   .box h2 { font-size: 12px; margin: 0 0 6px; }`
 
-async function output(html, { name, rel }) {
+async function output(html, { name, fileName, rel }) {
   if (window.electronAPI?.savePdf) {
     try {
-      const saved = await window.electronAPI.savePdf({ html, name, rel, root: state.prefs.root || undefined })
+      const saved = await window.electronAPI.savePdf({ html, name, fileName, rel, root: state.prefs.root || undefined })
       if (saved) toast(`Saved ${saved.split(/[\\/]/).pop()}`)
-    } catch (e) { toast(e.message) }
-    return
+      return saved || null
+    } catch (e) { toast(e.message); return null }
   }
   // Web: print a hidden frame; the browser's dialog offers Save as PDF.
   const f = Object.assign(document.createElement('iframe'), { style: 'position:fixed;right:0;bottom:0;width:0;height:0;border:0' })
   document.body.append(f)
   f.contentDocument.open(); f.contentDocument.write(html); f.contentDocument.close()
   setTimeout(() => { f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 1000) }, 300)
+  return 'web'
+}
+
+// -- Status-list revision (R.n) --
+// Kept in rm_settings so every PC counts from the same number. Only a full-list export that
+// was really saved moves it; a filtered view never does.
+const meta = () => state.data.listMeta || {}
+export const nextRev = () => Number.isInteger(meta().next) ? meta().next : 0
+export const revSummary = () => {
+  const m = meta()
+  return `Next R.${nextRev()}${m.last_rev != null ? ` · last R.${m.last_rev}${m.last_date ? ` (${fmtDate(m.last_date)})` : ''}` : ' · none exported yet'}`
+}
+async function setMeta(v) {
+  state.data.listMeta = v
+  try { await saveListMeta(v) } catch { toast('Saved on this PC only: run the v0.17.2 SQL in supabase/SETUP.md to share it') }
+}
+export function openRevEditor() {
+  const m = openModal(`<div class="confirm"><p><b>Status list revision</b></p>
+    <p class="muted">${esc(revSummary())}. It changes only after a list is exported. Edit it here if you filed one by hand.</p>
+    <label class="menu-field">Next export is R.<input id="rev-next" type="number" min="0" step="1" value="${nextRev()}" style="width:5em"></label>
+    <div class="row-end"><button class="btn ghost" data-close>Cancel</button><button class="btn primary" data-ok>Save</button></div></div>`)
+  const inp = m.el.querySelector('#rev-next')
+  const ok = async () => { const n = Number(inp.value); if (!Number.isInteger(n) || n < 0) return inp.focus(); await setMeta({ ...meta(), next: n }); m.close(); toast(`Next export: R.${n}`) }
+  m.el.querySelector('[data-ok]').onclick = ok
+  inp.addEventListener('keydown', e => { if (e.key === 'Enter') ok() })
+  inp.select()
+}
+// After a full export is saved: move the counter on, and offer to shelve older revisions (desktop only).
+async function afterExport(saved, rev) {
+  if (saved === 'web' && !(await confirmBox(`Mark R.${rev} as exported? The next list will be R.${rev + 1}.`, { ok: 'Mark as exported', danger: false }))) return
+  await setMeta({ next: rev + 1, last_rev: rev, last_date: todayIso() })
+  if (saved === 'web' || !window.electronAPI?.archiveOlder) return
+  try {
+    const opts = { filePath: saved, root: state.prefs.root || undefined }
+    const older = await window.electronAPI.archiveOlder(opts)
+    const names = older?.revs?.map(r => 'R.' + r).join(', ')
+    if (older?.files?.length && await confirmBox(`Move the older revision${older.revs.length > 1 ? 's' : ''} (${names}, ${older.files.length} file${older.files.length > 1 ? 's' : ''}) to _Admin\\Old?`, { ok: 'Move to Old', danger: false })) {
+      const r = await window.electronAPI.archiveOlder({ ...opts, move: true })
+      toast(`Moved ${r.moved} file${r.moved === 1 ? '' : 's'} to Old${r.skipped ? ` (${r.skipped} skipped, name already there)` : ''}`)
+    }
+  } catch (e) { toast(e.message) }
 }
 
 // What the Note column says when no note was written in the app.
@@ -76,11 +118,20 @@ const shortNote = (t, max = 120) => {
   return s.length <= max ? s : s.slice(0, max).replace(/[\s,;:(]+\S*$/, '') + '…'
 }
 
-export function printStatusList(rows, { filters = [], total = rows.length } = {}) {
+// The Export dropdown: the status list shows which revision it will save as.
+export const exportMenuItems = () => [
+  { label: 'Status list PDF', act: 'print-list', hint: revSummary() },
+  { label: 'Status list revision…', act: 'list-rev', hint: 'Change the next R.n' },
+  { sep: true },
+  { label: 'CSV for Excel', act: 'export', hint: 'The rows on screen, every column' },
+]
+
+export async function printStatusList(rows, { filters = [], total = rows.length } = {}) {
   const list = rows.filter(r => r.status !== 'unreadable').slice()
     .sort((a, b) => a.materialName.localeCompare(b.materialName) || (a.manufacturer || a.candidate || '').localeCompare(b.manufacturer || b.candidate || ''))
   const partial = filters.length > 0
-  const title = `Raw Material Evaluation Status List${partial ? ' - filtered view' : ''} (${fmtDate(todayIso())})`
+  const rev = nextRev()
+  const title = `Raw Material Evaluation Status List${partial ? ' - filtered view' : ''} (${partial ? '' : `R.${rev}, `}${fmtDate(todayIso())})`
   const counts = Object.entries(STATUS).map(([k, s]) => [k, s.label, list.filter(r => r.status === k).length]).filter(([, , n]) => n)
   const html = `<!doctype html><html><head><meta charset="utf-8"><title>${esc(title)}</title><style>${CSS(title)}</style></head><body>
     <h1>Raw Material Evaluation Status List</h1>
@@ -93,7 +144,9 @@ export function printStatusList(rows, { filters = [], total = rows.length } = {}
       <td>${esc(r.itemCode || 'Not in file')}</td><td>${esc(r.manufacturer || r.candidate || '')}</td><td>${esc(r.supplier || '')}</td>
       <td class="st s-${r.status}">${esc(STATUS[r.status].label)}</td><td>${esc(shortNote(r.raw.notes || autoNote(r)))}</td></tr>`).join('')}
     </tbody></table></body></html>`
-  return output(html, { name: 'status-list', rel: '' })
+  const fileName = `RM Evaluation Status List (${partial ? 'filtered' : `R.${rev}`}_${yymmdd()}).pdf`
+  const saved = await output(html, { name: 'status-list', fileName, rel: '_Admin/Status and Reports' })
+  if (saved && !partial) await afterExport(saved, rev)
 }
 
 export function printEvaluation(r, doc, f = {}) {

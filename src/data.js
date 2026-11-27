@@ -29,9 +29,20 @@ async function readAll(build) {
   }
 }
 
+// ── Status-list revision counter ──
+// { next, last_rev, last_date }: the revision the next export gets, and the last one saved.
+// Shared through rm_settings so every PC agrees; before that SQL is run it stays on this PC.
+const META_KEY = 'vt_list_meta'
+export const localMeta = () => { try { return JSON.parse(localStorage.getItem(META_KEY) || 'null') } catch { return null } }
+export async function saveListMeta(value) {
+  try { localStorage.setItem(META_KEY, JSON.stringify(value)) } catch {}
+  const { error } = await supa.from('rm_settings').upsert({ key: 'status_list', value, updated_at: new Date().toISOString() })
+  if (error) throw error
+}
+
 // ── Load ──
 export async function fetchAll() {
-  const [materials, evaluations, events, runs, products, evidence, files] = await Promise.all([
+  const [materials, evaluations, events, runs, products, evidence, files, listMeta] = await Promise.all([
     readAll(() => supa.from('rm_materials').select('*').is('removed_at', null).order('folder')),
     readAll(() => supa.from('rm_evaluations').select('*').is('removed_at', null).order('folder')),
     readAll(() => supa.from('rm_events').select('*').order('event_date').order('created_at')),
@@ -42,8 +53,10 @@ export async function fetchAll() {
     readAll(() => supa.from('rm_evidence').select('*').order('created_at')).catch(() => []),
     // documents in each candidate's Document folders; empty until the v0.7.0 SQL
     readAll(() => supa.from('rm_files').select('*').order('doc_date')).catch(() => []),
+    // status-list revision counter; empty until the v0.17.2 SQL has been run
+    supa.from('rm_settings').select('value').eq('key', 'status_list').maybeSingle().then(r => r.error ? null : r.data?.value ?? null),
   ])
-  return { materials, evaluations, events, products, evidence, files, lastRun: runs[0] ?? null }
+  return { materials, evaluations, events, products, evidence, files, listMeta: listMeta ?? localMeta(), lastRun: runs[0] ?? null }
 }
 
 // ── Writes (app-owned columns only) ──
